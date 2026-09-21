@@ -67,6 +67,8 @@ def enxugar(p):
     legenda = " ".join((p.get("content") or "").split()).replace("|", "/")
     return {
         "data": (p.get("publishedAt") or "")[:10],
+        "hora": (p.get("publishedAt") or "")[11:16],
+        "feed": p.get("isSharedToFeed"),
         "tipo": (p.get("mediaProductType") or p.get("mediaType") or "?").lower(),
         "dur": a.get("videoDurationSeconds") or 0,
         "alcance": alcance, "views": n("views"), "curt": n("likes"), "com": n("comments"),
@@ -79,6 +81,26 @@ def enxugar(p):
         "legenda": legenda[:90],
         "url": p.get("platformPostUrl") or "",
     }
+
+
+def marcar_testes(linhas):
+    """Reels de teste do Instagram: o mesmo vídeo sai duas vezes no mesmo dia,
+    com a mesma duração. A cópia fora do feed é o teste. Ela vira tipo
+    reels-teste para não ser lida como repost nem entrar na mediana dos Reels."""
+    pares = {}
+    for l in linhas:
+        if l["tipo"] == "reels" and l["dur"]:
+            pares.setdefault((l["data"], l["dur"]), []).append(l)
+    achados = []
+    for grupo in pares.values():
+        if len(grupo) < 2:
+            continue
+        oficial = max(grupo, key=lambda l: (l["feed"] is True, l["alcance"]))
+        for l in grupo:
+            if l is not oficial:
+                l["tipo"] = "reels-teste"
+                achados.append((oficial, l))
+    return achados
 
 
 def mediana(linhas, campo):
@@ -139,6 +161,7 @@ def main():
     linhas = sorted((enxugar(p) for p in posts), key=lambda l: l["data"], reverse=True)
     if not linhas:
         sys.exit("Nenhum post no período.")
+    testes = marcar_testes(linhas)
     reels = [l for l in linhas if l["tipo"] == "reels"]
     hoje = dt.date.today().isoformat()
     seg = ", ".join(f"@{c.get('username')}: {c.get('followersCount')} seguidores" for c in contas) or "-"
@@ -150,7 +173,9 @@ def main():
            "- valor = (compartilhamentos + salvamentos) por 1.000 de alcance. É o sinal mais forte de "
            "conteúdo útil para quem decide.",
            "- Grupo com menos de 4 posts não sustenta conclusão.",
-           "- Traço em pulo ou assist: o Instagram não mediu esse post. Fica fora da mediana.", "",
+           "- Traço em pulo ou assist: o Instagram não mediu esse post. Fica fora da mediana.",
+           "- reels-teste: cópia de Reels de teste do Instagram (mesmo vídeo, mesmo dia, fora do feed). "
+           "Não é repost. Fica fora das contas de Reels.", "",
            "## Medianas por grupo", ""]
     doc += grupos(linhas, lambda l: l["tipo"], "Por tipo")
     if reels:
@@ -163,6 +188,13 @@ def main():
     if reels:
         com_pulo = [l for l in reels if l["pulo"] is not None]
         doc += ["## 10 Reels com mais pulo", ""] + tabela(sorted(com_pulo, key=lambda l: l["pulo"], reverse=True)[:10]) + [""]
+    if testes:
+        doc += ["## Reels de teste e a versão oficial", "",
+                "| data | dur s | oficial hora | oficial alcance | teste hora | teste alcance | legenda |",
+                "|---|---|---|---|---|---|---|"]
+        for o, x in sorted(testes, key=lambda par: par[0]["data"], reverse=True):
+            doc.append(f"| {o['data']} | {o['dur']} | {o['hora']} | {o['alcance']} | {x['hora']} | {x['alcance']} | {o['legenda'][:60]} |")
+        doc.append("")
     doc += ["## Todos os posts", ""] + tabela(linhas) + [""]
 
     saida = Path(args.saida) if args.saida else RAIZ / "saidas/metricas" / f"{hoje}-posts.md"

@@ -75,6 +75,13 @@ aprendizados/APRENDIZADOS.md no formato [data] o que falhou -> regra nova.
 - Número de Instagram nunca entra em post. Número de post sai só de
   provas.md.
 - Um post isolado não é padrão.
+- O Jessé usa Reels de teste do Instagram. O script marca a cópia de teste
+  como reels-teste. Ela não é repost e não entra em nenhuma comparação de
+  Reels. Só olhe a tabela Reels de teste e a versão oficial para dizer se o
+  teste está entregando alcance ou não.
+- Antes de chamar algo de padrão, pergunte se pode ser artefato da coleta:
+  duplicata, métrica que o Instagram não mediu, post recém publicado.
+  Na dúvida, vira hipótese, não padrão.
 - Métrica não manda na voz nem na crença. Se o que performa for conteúdo
   que o SOUL proíbe (motivacional, guru, promessa), registre o dado e não
   recomende.
