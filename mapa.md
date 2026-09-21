@@ -19,6 +19,7 @@ Se sua memória discordar de algo daqui, este diretório vence.
 | provas.md | números confirmados, em conflito e não confirmados | antes de citar QUALQUER número |
 | diagnostico.md | o que já foi publicado, o que funcionou, ângulos queimados | antes de sugerir tema, para não repetir |
 | estrategia-conteudo.md | frequência, mix semanal, palavras chave e o que cada uma dispara | antes de definir formato e chamada |
+| desempenho.md | o que o público respondeu, por métrica. Gerado pela skill metricas-instagram, não edite à mão | antes de escolher formato, duração e gancho |
 | ofertas.md | o que o Jessé vende e para quem | só em conteúdo de demanda |
 | precos-DECISAO.md | preços ainda não decididos | NÃO cite valor nenhum daqui |
 | referencias-modelagem.md | perfis de referência e como modelar sem copiar | no radar e ao escolher formato |
@@ -36,6 +37,8 @@ AAAA-MM-DD-assunto.md
 - produtos/: materiais em PDF
 - relatorios/: pautas e análises
 - radar/: levantamento diário do que o mercado está publicando
+- metricas/: tabela de métricas do Instagram gerada por script, não edite
+- publicados.md: uma linha por post publicado, ligando o post à pauta
 
 ## skills/
 As skills conscientes do Jarvis. Cada uma termina com autoavaliação.
@@ -48,9 +51,15 @@ As skills conscientes do Jarvis. Cada uma termina com autoavaliação.
 | roteiro-reels | roteiro falado de 30 a 60 segundos | quando a pauta escolhida for reels |
 | avaliador | checklist passa ou não passa | antes de entregar qualquer conteúdo |
 | registrar-feedback | transforma a nota do Jessé em regra | quando ele avaliar uma entrega |
+| metricas-instagram | lê as métricas reais pelo Zernio e atualiza desempenho.md | uma vez por semana, ou quando o Jessé avisar que postou |
 
 Fluxo padrão: radar, pauta, Jessé escolhe, carrossel ou reels, avaliador,
-entrega, Jessé avalia, registrar-feedback.
+entrega, Jessé avalia, registrar-feedback. Jessé grava e posta, avisa,
+metricas-instagram fecha o ciclo.
+
+Dois aprendizados, separados: a nota do Jessé vira regra em APRENDIZADOS.md.
+A métrica do público vira padrão em desempenho.md. Métrica propõe, o Jessé
+aprova.
 
 ## Regras de ouro
 1. Sem história real, não tem pauta.
