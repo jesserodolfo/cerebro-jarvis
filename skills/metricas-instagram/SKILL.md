@@ -16,7 +16,7 @@ description: Lê as métricas reais do Instagram do Jessé pelo Zernio e transfo
 ## Passos
 1. Rode no terminal, a partir da pasta do cérebro:
    python3 scripts/puxar-metricas.py
-   Na primeira rodada use --dias 366 para pegar o histórico.
+   Na primeira rodada use --dias 364 para pegar o histórico.
    Se o script disser que falta a chave, pare e avise o Jessé. Não peça a
    chave na conversa.
 2. Leia o arquivo gerado em saidas/metricas/. Não leia JSON cru da API.
