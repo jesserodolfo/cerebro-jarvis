@@ -41,6 +41,14 @@ post isolado é ruído. Só vale conclusão com grupo de 4 posts ou mais.
   Nunca no cérebro, nunca no chat.
 - O script só faz GET.
 
+### Atualização no mesmo dia
+O Jessé criou a chave com leitura e escrita, para não precisar trocar
+quando a publicação pelo Zernio for construída. Consequência: a barreira
+contra publicar deixa de ser técnica e passa a ser só regra escrita (SOUL,
+regra dura 1, e a regra final da skill). O script continua fazendo só GET.
+Para voltar à barreira técnica: criar chave com permission read no painel
+do Zernio, regravar ZERNIO_API_KEY e revogar a atual.
+
 ## Número de Instagram não é prova
 Alcance, curtida e taxa de pulo vivem só em contexto/desempenho.md e nos
 relatórios. Nunca entram em post. Número de post continua saindo só de

@@ -95,9 +95,12 @@ O cérebro continua no GitHub e em ~/cerebro.
 7. Zernio: não existe skill. Construir só depois da validação, entregando
    rascunho para aprovação, nunca publicação direta.
 7b. Skill metricas-instagram instalada em 2026-09-21 (7 skills no perfil).
-   Falta: chave do Zernio SOMENTE LEITURA gravada como ZERNIO_API_KEY em
-   ~/.hermes/profiles/jarvis/.env, e a primeira rodada com --dias 366.
-   O script foi testado só com amostra local, ainda não contra a API.
+   Chave do Zernio gravada como ZERNIO_API_KEY em
+   ~/.hermes/profiles/jarvis/.env. Decisão do Jessé: chave com leitura e
+   escrita. A barreira contra publicar é só regra escrita, não técnica.
+   A linha está duplicada no .env (o script usa a última); limpar quando
+   mexer no arquivo. Script validado contra a API em 2026-09-21: 189 posts
+   em 364 dias. Falta o Jarvis rodar a skill e gerar contexto/desempenho.md.
    Depois de mudar skill ou SOUL no repositório:
    git -C ~/cerebro pull && bash ~/cerebro/scripts/instalar-skills-hermes.sh
 8. Crons do ROTINAS.md: nenhum criado. Regra: cada skill rodada na mão

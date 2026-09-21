@@ -33,6 +33,10 @@ description: Gera as 3 melhores pautas de post do dia cruzando a matriz de cren�
    para desempatar notas próximas e para escolher formato, duração e tipo de
    gancho. Ele não muda a nota e não cria pauta sem história.
 
+7. Antes de entregar, confira todo número que aparece em gancho, subcrença
+   ou história contra contexto/provas.md. Só fica o que está marcado como
+   confirmado. Número fora de provas.md sai, e o gancho é reescrito sem ele.
+
 ## Formato de cada pauta
     Nota: 00/100
     Linha: cultura, inteligência ou demanda

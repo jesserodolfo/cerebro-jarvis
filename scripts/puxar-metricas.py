@@ -4,7 +4,7 @@
 Só faz GET. Nunca imprime a chave.
 Uso:
   python3 scripts/puxar-metricas.py              # últimos 90 dias
-  python3 scripts/puxar-metricas.py --dias 366   # primeira rodada, histórico
+  python3 scripts/puxar-metricas.py --dias 364   # primeira rodada, histórico (a API aceita até 1 ano)
   python3 scripts/puxar-metricas.py --from-json arquivo.json   # teste sem API
 
 A chave vem de ZERNIO_API_KEY no ambiente ou no .env do perfil jarvis.
@@ -51,8 +51,8 @@ def puxar(chave, dias, conta):
             with urllib.request.urlopen(req, timeout=60) as r:
                 dados = json.load(r)
         except urllib.error.HTTPError as e:
-            sys.exit(f"Zernio respondeu HTTP {e.code} na página {pagina}. "
-                     "401 ou 403: chave errada ou sem acesso a analytics.")
+            motivo = e.read().decode("utf-8", "replace")[:300].replace(chave, "[CHAVE]")
+            sys.exit(f"Zernio respondeu HTTP {e.code} na página {pagina}: {motivo}")
         posts += dados.get("posts", [])
         contas = dados.get("accounts", contas)
         if pagina >= dados.get("pagination", {}).get("pages", 1):
@@ -71,8 +71,9 @@ def enxugar(p):
         "dur": a.get("videoDurationSeconds") or 0,
         "alcance": alcance, "views": n("views"), "curt": n("likes"), "com": n("comments"),
         "comp": n("shares"), "salv": n("saves"),
-        "assist": round(n("igReelsAvgWatchTime") / 1000, 1),
-        "pulo": a.get("reelsSkipRate"),
+        # 0 nesses dois campos significa que o Instagram não mediu, não que foi zero
+        "assist": round(n("igReelsAvgWatchTime") / 1000, 1) or None,
+        "pulo": a.get("reelsSkipRate") or None,
         "eng": a.get("engagementRate") or 0,
         "valor": round((n("shares") + n("saves")) / alcance * 1000, 1) if alcance else 0,
         "legenda": legenda[:90],
@@ -84,6 +85,12 @@ def mediana(linhas, campo):
     # post sem alcance ainda não sincronizou métrica: fica fora da conta
     v = [l[campo] for l in linhas if l[campo] is not None and l["alcance"]]
     return round(statistics.median(v), 1) if v else "-"
+
+
+def media(linhas, campo):
+    # valor é esparso (muito post com 0): mediana esconde o sinal, média mostra
+    v = [l[campo] for l in linhas if l[campo] is not None and l["alcance"]]
+    return round(statistics.mean(v), 1) if v else "-"
 
 
 def faixa(d):
@@ -98,19 +105,20 @@ def tabela(linhas):
     for l in linhas:
         out.append("| {data} | {tipo} | {dur} | {alcance} | {views} | {curt} | {com} | {comp} | {salv} | "
                    "{assist} | {pulo} | {eng} | {valor} | {legenda} | {url} |".format(
-                       **{**l, "pulo": "-" if l["pulo"] is None else l["pulo"]}))
+                       **{**l, "pulo": "-" if l["pulo"] is None else l["pulo"],
+                          "assist": "-" if l["assist"] is None else l["assist"]}))
     return out
 
 
 def grupos(linhas, chave, titulo):
-    out = [f"### {titulo}", "| grupo | posts | alcance med | eng % med | valor med | pulo % med | assist s med |",
+    out = [f"### {titulo}", "| grupo | posts | alcance med | eng % med | valor médio | pulo % med | assist s med |",
            "|---|---|---|---|---|---|---|"]
     nomes = sorted({chave(l) for l in linhas})
     for g in nomes:
         sub = [l for l in linhas if chave(l) == g]
         aviso = "" if len(sub) >= 4 else " (amostra insuficiente)"
         out.append(f"| {g}{aviso} | {len(sub)} | {mediana(sub,'alcance')} | {mediana(sub,'eng')} | "
-                   f"{mediana(sub,'valor')} | {mediana(sub,'pulo')} | {mediana(sub,'assist')} |")
+                   f"{media(sub,'valor')} | {mediana(sub,'pulo')} | {mediana(sub,'assist')} |")
     return out + [""]
 
 
@@ -126,7 +134,7 @@ def main():
         dados = json.loads(Path(args.from_json).read_text(encoding="utf-8"))
         posts, contas = dados.get("posts", []), dados.get("accounts", [])
     else:
-        posts, contas = puxar(ler_chave(), min(args.dias, 366), args.conta)
+        posts, contas = puxar(ler_chave(), min(args.dias, 364), args.conta)
 
     linhas = sorted((enxugar(p) for p in posts), key=lambda l: l["data"], reverse=True)
     if not linhas:
@@ -141,13 +149,16 @@ def main():
            f"- Conta: {seg}",
            "- valor = (compartilhamentos + salvamentos) por 1.000 de alcance. É o sinal mais forte de "
            "conteúdo útil para quem decide.",
-           "- Grupo com menos de 4 posts não sustenta conclusão.", "",
+           "- Grupo com menos de 4 posts não sustenta conclusão.",
+           "- Traço em pulo ou assist: o Instagram não mediu esse post. Fica fora da mediana.", "",
            "## Medianas por grupo", ""]
     doc += grupos(linhas, lambda l: l["tipo"], "Por tipo")
     if reels:
         doc += grupos(reels, lambda l: faixa(l["dur"]), "Reels por duração")
     doc += grupos(linhas, lambda l: l["data"][:7], "Por mês")
-    doc += ["## 10 maiores em valor", ""] + tabela(sorted(linhas, key=lambda l: l["valor"], reverse=True)[:10]) + [""]
+    # alcance baixo infla o valor: 1 salvamento em 14 de alcance não é sinal
+    base_valor = [l for l in linhas if l["alcance"] >= 100]
+    doc += ["## 10 maiores em valor (alcance de 100 ou mais)", ""] + tabela(sorted(base_valor, key=lambda l: l["valor"], reverse=True)[:10]) + [""]
     doc += ["## 10 maiores em alcance", ""] + tabela(sorted(linhas, key=lambda l: l["alcance"], reverse=True)[:10]) + [""]
     if reels:
         com_pulo = [l for l in reels if l["pulo"] is not None]
