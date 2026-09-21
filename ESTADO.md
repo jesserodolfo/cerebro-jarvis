@@ -94,6 +94,12 @@ O cérebro continua no GitHub e em ~/cerebro.
    do número pareado.
 7. Zernio: não existe skill. Construir só depois da validação, entregando
    rascunho para aprovação, nunca publicação direta.
+7b. Skill metricas-instagram instalada em 2026-09-21 (7 skills no perfil).
+   Falta: chave do Zernio SOMENTE LEITURA gravada como ZERNIO_API_KEY em
+   ~/.hermes/profiles/jarvis/.env, e a primeira rodada com --dias 366.
+   O script foi testado só com amostra local, ainda não contra a API.
+   Depois de mudar skill ou SOUL no repositório:
+   git -C ~/cerebro pull && bash ~/cerebro/scripts/instalar-skills-hermes.sh
 8. Crons do ROTINAS.md: nenhum criado. Regra: cada skill rodada na mão
    pelo menos 5 vezes antes.
 9. Migração para VPS: instalar Hermes lá do zero, usuário não root,
