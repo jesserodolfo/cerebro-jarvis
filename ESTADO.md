@@ -73,8 +73,9 @@ O cérebro continua no GitHub e em ~/cerebro.
 
 ## Pendente
 1. Segurança: o token OAuth da conta Claude (sk-ant-oat01, validade 1 ano)
-   apareceu em um print no dia 2026-09-21. Decidir: revogar e gerar outro,
-   ou aceitar o risco.
+   apareceu em um print no dia 2026-09-21. Decisão do Jessé: aceitar o
+   risco. O login vence em 2027-09-21. Lembrete de renovação na agenda
+   em 2027-08-20 (sexta), com o passo a passo na descrição.
 2. Custo: conferir em claude.ai, Configurações, Uso, se "extra usage" está
    ligado e pôr limite de gasto. O Jarvis divide a cota de 5 horas do Max
    com o Claude Code.
