@@ -79,7 +79,13 @@ O cérebro continua no GitHub e em ~/cerebro.
    ligado e pôr limite de gasto. O Jarvis divide a cota de 5 horas do Max
    com o Claude Code.
 3. BotFather: /setjoingroups em Disable para o @jarvis_jesse_bot.
-4. Teste do cérebro (pauta-matinal pelo Telegram): registrar o resultado.
+4. Teste do cérebro: PASSOU em 2026-09-21. pauta-matinal pelo Telegram,
+   3 pautas com caso real (Logzz duas vezes, Marcelo), notas 86, 80 e 78,
+   nenhum ângulo queimado, número conferido em provas.md. Saída em
+   saidas/relatorios/2026-09-21-pauta.md. Rodada 1 de 5 antes de cron.
+   Observação: a resposta no Telegram usou travessão nos títulos
+   ("Pauta 1", traço, "Nota"), o que o SOUL proíbe. O arquivo salvo saiu
+   limpo. Candidato a regra via registrar-feedback.
 5. As 75 skills embutidas vieram junto no perfil (imessage, email,
    computer-use). Decidir quais desabilitar depois da validação.
 6. WhatsApp: só depois de validar o conteúdo, e só com chip dedicado.
