@@ -10,6 +10,7 @@ description: Gera as 3 melhores pautas de post do dia cruzando a matriz de cren�
 - contexto/historias.md
 - contexto/diagnostico.md (ângulos queimados)
 - contexto/estrategia-conteudo.md (mix da semana)
+- contexto/desempenho.md (o que o público respondeu, se existir)
 - saidas/radar/ (o radar mais recente, se existir)
 - saidas/relatorios/ (pautas dos últimos 14 dias)
 - aprendizados/APRENDIZADOS.md
@@ -28,7 +29,9 @@ description: Gera as 3 melhores pautas de post do dia cruzando a matriz de cren�
    - encaixe com a dor do público de publico.md (0 a 30)
    - distância dos ângulos queimados (0 a 20)
    - tema em alta no radar (0 a 10)
-6. Entregue as 3 maiores notas.
+6. Entregue as 3 maiores notas. Se existir contexto/desempenho.md, use ele
+   para desempatar notas próximas e para escolher formato, duração e tipo de
+   gancho. Ele não muda a nota e não cria pauta sem história.
 
 ## Formato de cada pauta
     Nota: 00/100
