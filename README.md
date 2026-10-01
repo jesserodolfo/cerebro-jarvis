@@ -10,6 +10,14 @@ Agente de conteúdo do Jessé Machado, rodando em Hermes Agent.
 5. Conecte o Telegram e trave para responder só ao Jessé
 6. Rode o TESTE DO CÉREBRO (abaixo) antes de qualquer rotina
 
+## Skill watch (vídeo)
+`skills/watch` veio de https://github.com/bradautomates/claude-video (MIT, v0.3.2).
+Precisa de `python3`, `ffmpeg` e `yt-dlp` na máquina do Hermes
+(Mac: `brew install ffmpeg yt-dlp`). Na primeira vez, a skill roda um
+assistente de setup. Com `GEMINI_API_KEY` em `~/.config/watch/.env` o Gemini
+assiste o vídeo; sem chave, ela extrai frames e legenda localmente.
+Para atualizar, copie de novo a pasta `skills/watch` do repositório original.
+
 ## Teste do cérebro
 Mande ao Jarvis:
 

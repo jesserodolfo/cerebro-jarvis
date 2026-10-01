@@ -52,6 +52,7 @@ As skills conscientes do Jarvis. Cada uma termina com autoavaliação.
 | avaliador | checklist passa ou não passa | antes de entregar qualquer conteúdo |
 | registrar-feedback | transforma a nota do Jessé em regra | quando ele avaliar uma entrega |
 | metricas-instagram | lê as métricas reais pelo Zernio e atualiza desempenho.md | uma vez por semana, ou quando o Jessé avisar que postou |
+| watch | assiste um vídeo (link ou arquivo): frames com tempo + transcrição. Skill de terceiros (bradautomates/claude-video), não edite | quando mandarem vídeo de referência, concorrente ou reels para analisar |
 
 Fluxo padrão: radar, pauta, Jessé escolhe, carrossel ou reels, avaliador,
 entrega, Jessé avalia, registrar-feedback. Jessé grava e posta, avisa,

@@ -23,8 +23,13 @@ p = sys.argv[1]
 t = open(p, encoding="utf-8").read()
 m = re.match(r"^---\n(.*?)\n---\n", t, re.S)
 fm = m.group(1)
-if "version:" not in fm:
-    fm += "\nversion: 1.0.0\nmetadata:\n  hermes:\n    category: jarvis"
+if not re.search(r"^version:", fm, re.M):
+    fm += "\nversion: 1.0.0"
+if not re.search(r"^metadata:", fm, re.M):
+    fm += "\nmetadata:\n  hermes:\n    category: jarvis"
+elif "hermes:" not in fm:
+    # Skill de terceiros (ex.: watch) já tem bloco metadata. Encaixa a categoria nele.
+    fm = re.sub(r"^metadata:\n", "metadata:\n  hermes:\n    category: jarvis\n", fm, count=1, flags=re.M)
 open(p, "w", encoding="utf-8").write("---\n" + fm + "\n---\n" + t[m.end():])
 PY
   echo "ok $nome"
