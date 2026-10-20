@@ -47,3 +47,10 @@ repetidos, Second Brain ocupando meia tela.
   protege a narração.
 - Fase 2 (controle por voz, ex.: "cria uma sessão no projeto tal") precisa de decisão nova:
   rota de escrita, modo de permissão, quem paga, confirmação e se a VPS entra.
+
+## Atualização (2026-10-20, mais tarde)
+Voz do ElevenLabs pausada: o Jessé não paga mais o plano ("elvens labs eu não pago mais").
+Nada que dependa do ElevenLabs segue (chave, créditos, Voice Design). A fala fica na voz do
+navegador até ele escolher um provedor gratuito (Kokoro 82M local, voicebox ou edge-tts). O
+`voz.py` atual fica no repositório sem uso; a rota `POST /api/voz` e o front continuam e passam
+a escolher o provedor por `config.json/voz.provedor`, com decisão e GO próprios.
