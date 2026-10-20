@@ -255,7 +255,7 @@ a{color:var(--tema);text-decoration:none}a:hover{text-decoration:underline}
       <button class="chip" data-modo="profundo" title="Opus 5.5: pensa melhor">PROFUNDO</button>
     </div>
     <div class="grupo">
-      <button id="btnVoz" class="chip" title="Voz do Jarvis (ElevenLabs) ou voz reserva do navegador">VOZ</button>
+      <button id="btnVoz" class="chip" title="Voz do Jarvis (Kokoro local) ou voz reserva do navegador">VOZ</button>
       <select id="selVoz" class="chip" aria-label="Voz reserva" title="Voz reserva do navegador"></select>
     </div>
     <span id="custo" class="custo">API: US$ 0,0000</span>
@@ -401,7 +401,11 @@ let abaAtual = "geral", blocoGaveta = null;
 let busy = false, armado = false, tArmado = null, micLigado = false, escutando = false, rec = null;
 let filaFala = [], falando = false, respostaAberta = false, fraseBuf = "", textoResp = "", abortCtl = null, geracaoFala = 0;
 let vozes = [], voz = null;
-let vozEleven = false, vozFalhou = false, preferirReserva = lerGuardado("jarvis_reserva") === "1", avisouReserva = false;
+let vozPrincipal = false, vozFalhou = false, preferirReserva = lerGuardado("jarvis_reserva") === "1", avisouReserva = false;
+const PRAZO_VOZ_MS = 3500;   // passou disso, aquela frase sai pela voz do navegador
+const BUSCA_A_FRENTE = 2;     // o Kokoro faz uma síntese por vez: não adianta pedir mais
+const ERRO_FIXO = ["sem_chave", "sem_voz", "teto", "chave_recusada", "sem_credito"];  // só volta recarregando
+const ERRO_FORA = ["fora", "desligada"];  // volta sozinho quando /api/uso disser que o serviço subiu
 
 // ---------- interface ----------
 let estadoOrbe = "ocioso";
@@ -422,17 +426,15 @@ function atualizarModo() {
 function atualizarCusto(v) {
   $("#custo").textContent = "API: US$ " + (v || 0).toFixed(4).replace(".", ",");
 }
-const usarEleven = () => vozEleven && !preferirReserva;
+const usarPrincipal = () => vozPrincipal && !preferirReserva;
 function atualizarVoz() {
   const b = $("#btnVoz"), v = usoAtual.voz || {};
-  b.textContent = usarEleven() ? "VOZ JARVIS" : "VOZ RESERVA";
-  b.classList.toggle("ativo", usarEleven());
-  b.disabled = !vozEleven && !preferirReserva;
-  b.title = vozEleven
-    ? `ElevenLabs: ${Math.round(v.hoje_creditos || 0)} de ${v.teto || 0} créditos hoje. Clique pra alternar com a voz reserva.`
-    : (v.tem_chave === false ? "Falta ELEVENLABS_API_KEY no painel/.env: usando a voz reserva do navegador."
-      : v.tem_voz === false ? "Falta ELEVENLABS_VOICE_ID no painel/.env: usando a voz reserva do navegador."
-      : "Voz do ElevenLabs indisponível agora: usando a voz reserva do navegador.");
+  b.textContent = usarPrincipal() ? "VOZ JARVIS" : "VOZ RESERVA";
+  b.classList.toggle("ativo", usarPrincipal());
+  b.disabled = !vozPrincipal && !preferirReserva;
+  b.title = vozPrincipal
+    ? `Voz ${v.provedor || "principal"} (${v.voz || "padrão"}): ${v.hoje_frases ?? 0} frases hoje. Clique pra alternar com a voz reserva.`
+    : `Voz principal indisponível${v.motivo ? ": " + v.motivo : ""}. Usando a voz reserva do navegador.`;
 }
 
 // ---------- abas ----------
@@ -445,7 +447,7 @@ function trocarAba(nome) {
 }
 document.querySelectorAll(".aba").forEach(b => b.onclick = () => trocarAba(b.dataset.aba));
 
-// ---------- voz: fala (ElevenLabs pelo servidor, voz do navegador como reserva) ----------
+// ---------- voz: fala (provedor do servidor, voz do navegador como reserva) ----------
 const audioEl = new Audio();
 let audioCtx = null, analisador = null, amostra = null;
 function prepararAudio() {
@@ -494,12 +496,22 @@ async function buscarVoz(t, signal) {
     return { erro: d.codigo || "api", msg: d.erro };
   } catch (e) { return { erro: e.name === "AbortError" ? "abortado" : "rede" }; }
 }
+function iniciarBusca(item) {
+  item.ctl = new AbortController();
+  item.timer = setTimeout(() => { item.lento = true; item.ctl.abort(); }, PRAZO_VOZ_MS);
+  item.p = buscarVoz(item.t, item.ctl.signal).finally(() => clearTimeout(item.timer));
+}
+function preBuscar() {
+  // busca a próxima frase enquanto a anterior toca, no máximo BUSCA_A_FRENTE de uma vez
+  if (!usarPrincipal()) return;
+  filaFala.filter(i => !i.p && !i.reserva).slice(0, Math.max(0, BUSCA_A_FRENTE - filaFala.filter(i => i.p).length))
+    .forEach(iniciarBusca);
+}
 function falar(texto) {
   const t = limparFala(texto);
   if (!t) return;
-  const item = { t };
-  if (usarEleven()) { item.ctl = new AbortController(); item.p = buscarVoz(t, item.ctl.signal); } // já busca enquanto a frase anterior toca
-  filaFala.push(item);
+  filaFala.push({ t });
+  preBuscar();
   if (!falando) proximaFala();
 }
 async function proximaFala() {
@@ -508,16 +520,19 @@ async function proximaFala() {
   const g = geracaoFala;
   falando = true; busy = true;
   pararEscuta(); setEstado("falando");
+  if (!item.p && !item.reserva && usarPrincipal()) iniciarBusca(item);
+  preBuscar();
   if (item.p) {
     const res = await item.p;
     if (g !== geracaoFala) return; // interrompido enquanto buscava
     if (res.blob) return tocar(res.blob, item.t, g);
-    if (["sem_chave", "sem_voz", "teto", "chave_recusada", "sem_credito"].includes(res.erro)) {
-      // falha que não passa sozinha: o resto da sessão vai na voz reserva
-      vozEleven = false; vozFalhou = true; atualizarVoz();
-      filaFala.forEach(i => { if (i.ctl) i.ctl.abort(); i.p = null; });
+    if (ERRO_FIXO.includes(res.erro) || ERRO_FORA.includes(res.erro)) {
+      // a voz principal caiu: o resto da fila vai na reserva (ERRO_FORA volta quando o serviço subir)
+      vozPrincipal = false; if (ERRO_FIXO.includes(res.erro)) vozFalhou = true; atualizarVoz();
+      filaFala.forEach(i => { if (i.ctl) i.ctl.abort(); i.p = null; i.reserva = true; });
       if (!avisouReserva && res.msg) { avisouReserva = true; return falarNavegador(res.msg, () => falarNavegador(item.t, proximaFala, g), g); }
     }
+    // lento, ocupado ou erro pontual: só esta frase vai na reserva
   }
   falarNavegador(item.t, proximaFala, g);
 }
@@ -552,7 +567,7 @@ function finalizarTurno() {
 }
 function interromper() {
   geracaoFala++;
-  filaFala.forEach(i => { if (i.ctl) i.ctl.abort(); });
+  filaFala.forEach(i => { clearTimeout(i.timer); if (i.ctl) i.ctl.abort(); });
   filaFala = [];
   respostaAberta = false;
   if (abortCtl) abortCtl.abort();
@@ -931,7 +946,8 @@ function renderCustos(est) {
       }).join("") : `<p class="vazio">O coletor de custos ainda não manda as fatias.</p>`);
   const extra = (d.itens || []).filter(i => !String(i.id || "").startsWith("custos.fatia.") && i.id !== "custos.semana");
   const v = usoAtual.voz || {};
-  const voz = v.teto ? `<li><span class="ponto ${v.hoje_creditos >= v.teto ? "erro" : "info"}"></span><span><b>Voz ElevenLabs</b> ${Math.round(v.hoje_creditos || 0)} de ${v.teto} créditos hoje${v.tem_chave ? "" : " (sem chave, voz reserva)"}</span></li>` : "";
+  const voz = v.provedor ? `<li><span class="ponto ${v.disponivel ? "ok" : "info"}"></span><span><b>Voz ${esc(v.provedor)}</b> ${v.disponivel
+    ? `${esc(v.voz || "")} · ${v.hoje_frases ?? 0} frases hoje · sem custo` : `fora, usando a voz reserva${v.motivo ? " (" + esc(v.motivo) + ")" : ""}`}</span></li>` : "";
   const api = usoAtual.hoje_usd !== undefined ? `<li><span class="ponto info"></span><span><b>API do painel hoje</b> ${usd(usoAtual.hoje_usd)}</span></li>` : "";
   $("#custosExtra").innerHTML = `<div class="rotulo" style="margin-bottom:10px">DETALHES</div><ul class="lista-simples">${api}${voz}
     ${extra.map(i => `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}</span></li>`).join("")}
@@ -956,7 +972,7 @@ async function carregarUso() {
   try {
     usoAtual = await (await fetch("/api/uso")).json();
     atualizarCusto(usoAtual.custo_usd);
-    vozEleven = !!(usoAtual.voz && usoAtual.voz.tem_chave && usoAtual.voz.tem_voz) && !vozFalhou;
+    vozPrincipal = !!(usoAtual.voz && usoAtual.voz.disponivel) && !vozFalhou;
     atualizarVoz(); renderUsoGeral();
     if (estadoAtual) renderCustos(estadoAtual);
     return usoAtual;

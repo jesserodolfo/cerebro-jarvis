@@ -47,7 +47,7 @@ N8N = "https://n8n.melavitta.com"
 SCRIPT_REMOTO = r'''
 import json, subprocess, time
 
-EXATOS = ("sara-cloud", "bia-baileys", "julia-baileys", "gustavo-baileys", "felipe-baileys",
+EXATOS = ("sara-cloud", "bia-baileys", "julia-baileys", "gustavo-baileys",
           "orq-core", "baileys-api", "chatwoot-rails-1", "chatwoot-sidekiq-1", "cliente-app")
 PREFIXOS = ("n8n_n8n_editor", "n8n_n8n_webhook", "n8n_n8n_worker")
 PM2 = ("gestao", "payt-checkout-api")
@@ -117,7 +117,6 @@ AGENTES = [
     ("vps.bia", "BIA", "bia-baileys", ""),
     ("vps.julia", "JulIA", "julia-baileys", ""),
     ("vps.gustavo", "Dr. Gustavo", "gustavo-baileys", ""),
-    ("vps.felipe", "Dr. Felipe", "felipe-baileys", ""),
     ("vps.orq", "Orquestrador", "orq-core", "CláudIA e AnalistIA rodam dentro dele"),
     ("vps.chip-legado", "Chip Sarah 04", "baileys-api", ""),
 ]
@@ -374,7 +373,7 @@ def coletar():
             frase = f"VPS sem resposta; {juntar(prob_web)}."
         resumo = f"Não consegui falar com a VPS da MelaVitta ({motivo}), então não sei o estado dos agentes. "
         resumo += ("Os dois painéis web estão no ar." if not prob_web else f"Atenção: {juntar(prob_web)}.")
-        destaque = {"valor": "?/7", "rotulo": "agentes saudáveis", "estado": "erro"}
+        destaque = {"valor": f"?/{len(AGENTES)}", "rotulo": "agentes saudáveis", "estado": "erro"}
         lista = [{"quando": agora().strftime("%d/%m %H:%M"), "texto": f"VPS sem resposta ({motivo})",
                   "estado": "erro"}]
         return montar(itens, destaque, frase[:90], lista, links, resumo)
@@ -387,6 +386,9 @@ def coletar():
     agentes = [item_container(i, r, containers, docker_erro, n, obs) for i, r, n, obs in AGENTES]
     agentes.append({"id": "vps.maria", "rotulo": "MarIA", "estado": "info", "tipo": "info",
                     "valor": "planejada, chip ainda não comprado", "dt": None, "ev": ""})
+    # 20/10 (Jessé): "deixa pra lá o Dr. Felipe, não estou rodando mais esse produto"
+    agentes.append({"id": "vps.felipe", "rotulo": "Dr. Felipe", "estado": "info", "tipo": "info",
+                    "valor": "desligado, produto encerrado", "dt": None, "ev": ""})
     infra = [item_agregado(i, r, partes, containers, docker_erro) for i, r, partes in INFRA_CONTAINERS]
     infra += [item_pm2(i, r, n, pm2, pm2_erro) for i, r, n in INFRA_PM2]
     pani = item_container("vps.cliente", "Cliente B2B", containers, docker_erro, "cliente-app",
@@ -395,7 +397,7 @@ def coletar():
 
     itens = agentes + infra + itens_web
 
-    # destaque: os 7 agentes com container
+    # destaque: os agentes ativos com container (MarIA e Dr. Felipe ficam fora)
     com_container = agentes[:len(AGENTES)]
     saudaveis = sum(1 for a in com_container if a["estado"] == "ok")
     total = len(com_container)

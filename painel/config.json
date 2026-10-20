@@ -13,12 +13,14 @@
   ],
   "reserva_pct": 10,
   "voz": {
-    "provedor": "elevenlabs",
-    "modelo": "eleven_flash_v2_5",
-    "formato": "mp3_44100_128",
-    "teto_creditos_dia": 2000,
+    "provedor": "kokoro",
+    "voz": "pm_alex",
+    "modelo": "int8",
+    "porta": 8791,
+    "prazo_ms": 3000,
+    "velocidade": 1.0,
     "max_caracteres_pedido": 600,
-    "teto_legenda": "aprovado pelo Jessé em 2026-10-20; a conta Creator é a mesma do Jesus é Pop"
+    "legenda": "Kokoro 82M local (decisão 2026-10-20-voz-kokoro). provedor: kokoro, elevenlabs (parado) ou nenhum"
   },
   "nuvem": {"total_usd": 250, "saldo_usd": 148, "lido_em": "2026-10-20", "expira": "2026-11-05T04:59:00-03:00"},
   "precos_por_milhao": {

@@ -7,7 +7,7 @@ Rotas:
   GET  /api/notas      Second Brain (notas.json)
   POST /api/notas      grava o Second Brain inteiro
   POST /api/chat       pergunta ao Claude, resposta em streaming (linhas "data: {...}")
-  POST /api/voz        uma frase em mp3 pelo ElevenLabs (voz.py), ou JSON de erro pra voz reserva
+  POST /api/voz        uma frase em áudio pelo provedor do config.json (voz_<provedor>.py), ou JSON de erro pra voz reserva
   GET  /api/uso        gasto da API (sessão e hoje) e situação da voz
 """
 import concurrent.futures
@@ -27,7 +27,7 @@ from pathlib import Path
 
 PAINEL = Path(__file__).resolve().parent
 sys.path.insert(0, str(PAINEL / "coletores"))
-sys.path.insert(1, str(PAINEL))  # voz.py
+sys.path.insert(1, str(PAINEL))  # voz_<provedor>.py
 import _base  # noqa: E402
 
 PORTA = 8790
@@ -309,11 +309,26 @@ def gasto_hoje():
     return round(total, 6)
 
 
+def provedor_voz():
+    """Módulo voz_<provedor>.py escolhido em config.json/voz.provedor; None quando é "nenhum"."""
+    nome = str(CONFIG.get("voz", {}).get("provedor") or "nenhum")
+    if nome == "nenhum" or not re.fullmatch(r"[a-z0-9_]+", nome):
+        return None
+    return importlib.import_module("voz_" + nome)
+
+
 def situacao_voz():
+    nome = CONFIG.get("voz", {}).get("provedor") or "nenhum"
     try:
-        return importlib.import_module("voz").status()
+        modulo = provedor_voz()
+        if modulo is None:
+            return {"provedor": "nenhum", "disponivel": False, "motivo": "voz principal desligada no config.json"}
+        st = modulo.status()
+        st.setdefault("provedor", nome)
+        st.setdefault("disponivel", bool(st.get("tem_chave") and st.get("tem_voz")))  # provedor antigo
+        return st
     except Exception as e:
-        return {"tem_chave": False, "tem_voz": False, "erro": type(e).__name__}
+        return {"provedor": nome, "disponivel": False, "motivo": f"provedor não carregou ({type(e).__name__})"}
 
 
 def limpar_historico(msgs):
@@ -484,15 +499,18 @@ class Handler(BaseHTTPRequestHandler):
         self._json({"erro": "não encontrado"}, 404)
 
     def _voz(self, texto):
-        """Uma frase em mp3. Qualquer falha antes do primeiro pedaço volta como JSON e o navegador usa a voz reserva."""
+        """Uma frase em áudio. Qualquer falha antes do primeiro pedaço volta como JSON e o navegador usa a voz reserva."""
         try:
-            fluxo = importlib.import_module("voz").abrir(texto)
+            modulo = provedor_voz()
+            if modulo is None:
+                return self._json({"erro": "", "codigo": "desligada"}, 503)
+            fluxo = modulo.abrir(texto)
         except Exception as e:
             codigo = getattr(e, "codigo", "api")
             msg = getattr(e, "msg", "Senhor, a voz principal falhou. Sigo com a voz reserva.")
             return self._json({"erro": msg, "codigo": codigo}, 429 if codigo == "teto" else 503)
         self.send_response(200)
-        self.send_header("Content-Type", "audio/mpeg")
+        self.send_header("Content-Type", getattr(modulo, "TIPO", "audio/mpeg"))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         try:

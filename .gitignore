@@ -10,3 +10,4 @@ painel/.env
 painel/logs/
 painel/.venv/
 *.bak-pre-*
+painel/modelos/

@@ -1,11 +1,14 @@
 """Coletor Jesus é Pop (YouTube + Facebook, PT e ES). Lê o jarvis_yt.db só pra leitura."""
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import datetime
+import json
 import re
 
 from _base import FUSO, MKT, agora, erro, ok, rodar, sqlite_ro
 
 DB = MKT / "Jesusepop/jarvis_yt.db"
+# youtube_id -> facebook_id, gravado pelo copiar_agenda_fb.py (a cópia vai pro Facebook no mesmo horário)
+FB_COPIAS = MKT / "Jesusepop/JesusEPop_producao/jarvis/fb_copiados.json"
 NOMES = {"pt": "Jesus é Pop", "es": "Jesús es Pop"}
 PAINEL = "http://127.0.0.1:8787"
 
@@ -94,7 +97,12 @@ def coletar():
         lista.append({"quando": f"{brt(r['quando_utc']):%d/%m %H:%M}", "estado": "info",
                       "texto": f"{r['conta'].upper()} · {r['tipo']} · {r['titulo'][:70]}"})
 
-    # agenda do painel em abas: hoje 00:00 até hoje+6 23:59 BRT (YouTube; a tabela não guarda Facebook)
+    # agenda do painel em abas: hoje 00:00 até hoje+6 23:59 BRT. A tabela só guarda YouTube; o Facebook sai
+    # do fb_copiados.json (só leitura). O status da cópia no Facebook não é lido: fica "info".
+    try:
+        copias_fb = json.loads(FB_COPIAS.read_text())
+    except (OSError, ValueError):
+        copias_fb = {}
     hoje = agora().date()
     ini_ag = datetime.datetime.combine(hoje, datetime.time(0), FUSO)
     fim_ag = datetime.datetime.combine(hoje + datetime.timedelta(days=6), datetime.time(23, 59, 59), FUSO)
@@ -111,6 +119,10 @@ def coletar():
                        "conta": f"{NOMES.get(r['conta'], r['conta'])} {r['conta'].upper()}",
                        "texto": corta(f"{r['tipo']} · {r['titulo']}", 70),
                        "estado": {"scheduled": "info", "published": "ok", "failed": "erro"}[r["status"]]})
+        if r["post_id"] in copias_fb and r["status"] != "failed":
+            agenda.append({"quando": q.isoformat(timespec="seconds"), "rede": "facebook",
+                           "conta": f"{NOMES.get(r['conta'], r['conta'])} {r['conta'].upper()}",
+                           "texto": corta(f"cópia · {r['titulo']}", 70), "estado": "info"})
     agenda = sorted(agenda, key=lambda e: e["quando"])[:60]
     c.close()
 
