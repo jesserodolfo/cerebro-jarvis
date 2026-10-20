@@ -5,3 +5,7 @@
 segredos/
 .DS_Store
 __pycache__/
+painel/notas.json*
+painel/.env
+painel/logs/
+painel/.venv/
