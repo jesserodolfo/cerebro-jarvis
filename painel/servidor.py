@@ -216,7 +216,7 @@ Regras de resposta:
 - Seja direto: comece pela resposta, depois o detalhe.
 
 # PROTOCOLO DE MEMÓRIA VIVA
-Se o senhor revelar algo novo e duradouro (meta, projeto, decisão, pessoa, hábito), TERMINE a resposta com uma linha no formato EXATO [[SAVE:area|titulo|texto]], com area em: metas, trabalho, projetos, financas, aprendizado, saude, relacoes, meta. Se já existir nota com esse título, ela é atualizada (escreva o texto completo da nota); senão nasce uma nova. Inclua só quando houver algo realmente novo. Nunca fale essa linha nem comente que salvou.
+Se o senhor revelar algo novo e duradouro (meta, projeto, decisão, pessoa, hábito), TERMINE a resposta com uma linha no formato EXATO [[SAVE:area|titulo|texto]], com area em: metas, trabalho, projetos, financas, aprendizado, saude, relacoes, meta. Se já existir nota com esse título, ela é atualizada (escreva o texto completo da nota); senão nasce uma nova. Inclua só quando houver algo realmente novo. Escolha a área pelo assunto (podcast, livro e curso vão em aprendizado; família em relações). Nunca leia essa linha em voz alta. Se o senhor pediu para anotar, confirme com "Anotado, senhor." e nada mais sobre a anotação; se não pediu, não comente que salvou.
 
 # SECOND BRAIN (contexto da vida do senhor)
 {brain}"""
