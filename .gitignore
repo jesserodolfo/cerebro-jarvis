@@ -9,3 +9,4 @@ painel/notas.json*
 painel/.env
 painel/logs/
 painel/.venv/
+*.bak-pre-*

@@ -18,3 +18,26 @@ Cada arquivo `painel/coletores/<nome>.py` segue isto:
 - Roda em menos de 5 s. Falha de uma fonte vira item `estado: erro`, não exceção.
 - Datas exibidas em BRT (`_base.FUSO`), formato `dd/mm HH:MM`.
 - Nunca imprime nem devolve valor de chave.
+
+## Campos opcionais do painel em abas (2026-10-20)
+Opcionais e retrocompatíveis: `titulo`, `itens`, `lista` e `links` continuam iguais e viram o
+detalhe da gaveta lateral. Decisão em `docs/decisoes/2026-10-20-agentes-abas-voz.md`.
+
+- `itens[].id`: id fixo do item, minúsculo, com ponto e hífen (`jesusepop.coleta`, `vps.bia`).
+  Serve pra gaveta agora e pras ações da fase 2 depois. Não muda de uma coleta pra outra.
+- `destaque`: `{valor, rotulo, estado}`. O número grande do bloco na aba Projetos.
+  `valor` curto, até 8 caracteres (`33%`, `4`, `6/7`, `US$ 129`). `rotulo` até 32 caracteres.
+- `frase`: 1 frase de até 90 caracteres, sem travessão, com o ponto principal do bloco.
+  Não repete o `destaque` palavra por palavra.
+- `agenda`: lista de `{quando, rede, conta, texto, estado, link?}`, de hoje 00:00 até
+  hoje + 6 dias 23:59 BRT, em ordem crescente, no máximo 60.
+  - `quando`: ISO 8601 com fuso, `2026-10-21T06:00:00-03:00`. Sem hora conhecida: 12:00.
+  - `rede`: `tiktok`, `instagram`, `youtube`, `facebook` ou `rotina`.
+  - `conta`: rótulo curto, até 24 caracteres (`jessé.ia`, `@mirian.dicas1`, `Jesus é Pop PT`).
+  - `texto`: até 70 caracteres.
+  - `estado`: `ok` publicado ou rodou, `info` agendado ou vai rodar, `atencao`, `erro` falhou.
+- `fatias` (só `custos`): `[{id, rotulo, gasto_usd, fatia_usd, pct_usado, pct_fatia, estado}]`.
+
+Exceção ao "só leitura por arquivo e HTTP": `melavitta.py` faz uma única chamada
+`ssh -o BatchMode=yes` à VPS com comando fixo no código (`docker inspect` e `pm2 jlist`),
+sem log de container, sem banco e sem conteúdo de conversa.

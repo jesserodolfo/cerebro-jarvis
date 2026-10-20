@@ -17,6 +17,16 @@ def fmt(dt):
     return dt.astimezone(FUSO).strftime("%d/%m %H:%M")
 
 
+def limpa(txt):
+    """Tira travessão de texto que vem de fora (título de post, nome de pasta)."""
+    return re.sub(r"\s*[\u2014\u2013]\s*", ", ", txt or "")
+
+
+def corta(txt, n):
+    txt = " ".join(limpa(txt).split())
+    return txt if len(txt) <= n else txt[: n - 1].rstrip() + "…"
+
+
 def dia(d):
     return f"{DIAS[d.weekday()]} {d:%d/%m}"
 
@@ -126,18 +136,23 @@ def coletar():
     vazios = [hoje + datetime.timedelta(days=i) for i in range(7)
               if hoje + datetime.timedelta(days=i) not in cobertos]
 
-    itens.append({"rotulo": "Carrosséis criados na semana", "valor": len(criados), "estado": "info"})
-    itens.append({"rotulo": "Agendados (próx. 7 dias)", "valor": len(agendados),
+    itens.append({"id": "instagram.criados", "rotulo": "Carrosséis criados na semana",
+                  "valor": len(criados), "estado": "info"})
+    itens.append({"id": "instagram.agendados", "rotulo": "Agendados (próx. 7 dias)", "valor": len(agendados),
                   "estado": "ok" if agendados else "atencao"})
-    itens.append({"rotulo": "Publicados (últ. 7 dias)", "valor": len(publicados), "estado": "info"})
-    itens.append({"rotulo": "Em produção", "valor": f"{len(producao)} ({len(sem_arte)} sem arte final)",
+    itens.append({"id": "instagram.publicados", "rotulo": "Publicados (últ. 7 dias)",
+                  "valor": len(publicados), "estado": "info"})
+    itens.append({"id": "instagram.producao", "rotulo": "Em produção",
+                  "valor": f"{len(producao)} ({len(sem_arte)} sem arte final)",
                   "estado": "atencao" if atrasados else "info"})
-    itens.append({"rotulo": "Dias sem post", "valor": ", ".join(dia(d) for d in vazios) or "nenhum",
+    itens.append({"id": "instagram.sem-post", "rotulo": "Dias sem post",
+                  "valor": ", ".join(dia(d) for d in vazios) or "nenhum",
                   "estado": "atencao" if vazios else "ok"})
     if z["failed"]:
-        itens.append({"rotulo": "Falhas no Zernio", "valor": len(z["failed"]), "estado": "erro"})
+        itens.append({"id": "instagram.falhas", "rotulo": "Falhas no Zernio",
+                      "valor": len(z["failed"]), "estado": "erro"})
     if falha_api:
-        itens.append({"rotulo": "Zernio", "valor": falha_api[:120], "estado": "erro"})
+        itens.append({"id": "instagram.zernio", "rotulo": "Zernio", "valor": falha_api[:120], "estado": "erro"})
 
     for p in agendados:
         local = next((por_id[i] for i in [p["_id"]] if i in por_id), None)
@@ -163,8 +178,45 @@ def coletar():
     if falha_api:
         frases.append("Não consegui ler o Zernio.")
 
+    # número grande, frase e agenda do painel em abas (a lista e os itens seguem iguais)
+    destaque = {"valor": str(len(agendados)), "rotulo": "agendados 7 dias",
+                "estado": "atencao" if (vazios or falha_api) else "ok"}
+    pontos = []
+    if falha_api:
+        pontos.append("Zernio sem resposta.")
+    if vazios:
+        pontos.append(f"{len(vazios)} dia{'s' if len(vazios) != 1 else ''} sem post a partir de {dia(vazios[0])}.")
+    else:
+        pontos.append("Todos os próximos 7 dias têm post.")
+    if z["failed"]:
+        pontos.append(f"{len(z['failed'])} falha{'s' if len(z['failed']) != 1 else ''} no Zernio.")
+    frase = corta(" ".join(pontos), 90)
+
+    ini_ag = datetime.datetime.combine(hoje, datetime.time(0), FUSO)
+    fim_ag = datetime.datetime.combine(hoje + datetime.timedelta(days=6), datetime.time(23, 59, 59), FUSO)
+    agenda = []
+    for estado_ag, posts in (("info", z["scheduled"]), ("ok", z["published"]), ("erro", z["failed"])):
+        for p in posts:
+            q = quando_zernio(p).astimezone(FUSO)
+            if not (ini_ag <= q <= fim_ag):
+                continue
+            if estado_ag == "ok" and q.date() != hoje:
+                continue  # publicado só entra se foi hoje
+            local = por_id.get(p["_id"])
+            titulo = local["titulo"] if local else (p.get("content") or "").strip().split("\n")[0]
+            ev = {"quando": q.isoformat(timespec="seconds"), "rede": "instagram", "conta": "@jesse.rodolfo",
+                  "texto": corta(f"{tipo_zernio(p)} · {titulo}", 70), "estado": estado_ag}
+            link = (do_instagram(p) or {}).get("platformPostUrl")
+            if link:
+                ev["link"] = link
+            agenda.append(ev)
+    agenda = sorted(agenda, key=lambda e: e["quando"])[:60]
+
     dados = {
         "titulo": "Instagram",
+        "destaque": destaque,
+        "frase": frase,
+        "agenda": agenda,
         "itens": itens,
         "lista": lista,
         "links": [

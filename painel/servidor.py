@@ -7,7 +7,8 @@ Rotas:
   GET  /api/notas      Second Brain (notas.json)
   POST /api/notas      grava o Second Brain inteiro
   POST /api/chat       pergunta ao Claude, resposta em streaming (linhas "data: {...}")
-  GET  /api/uso        gasto da API desde que o servidor subiu
+  POST /api/voz        uma frase em mp3 pelo ElevenLabs (voz.py), ou JSON de erro pra voz reserva
+  GET  /api/uso        gasto da API (sessão e hoje) e situação da voz
 """
 import concurrent.futures
 import datetime
@@ -26,6 +27,7 @@ from pathlib import Path
 
 PAINEL = Path(__file__).resolve().parent
 sys.path.insert(0, str(PAINEL / "coletores"))
+sys.path.insert(1, str(PAINEL))  # voz.py
 import _base  # noqa: E402
 
 PORTA = 8790
@@ -36,8 +38,9 @@ LOGS = PAINEL / "logs"
 USO_LOG = LOGS / "uso-api.jsonl"
 CONFIG = json.loads((PAINEL / "config.json").read_text())
 
-COLETORES = ["tiktok", "instagram", "jesusepop", "custos", "sites", "agentes", "noticias"]
-VALIDADE = {"noticias": 900, "custos": 120}  # segundos; o resto vale 60
+COLETORES = ["tiktok", "instagram", "jesusepop", "custos", "sites", "agentes", "melavitta", "noticias"]
+VALIDADE = {"noticias": 900, "custos": 120, "melavitta": 300}  # segundos; o resto vale 60
+BRIEFING_MAX = 400  # caracteres: o resumo falado cabe no teto de voz
 TEMPO_COLETOR = 8
 
 API = "https://api.anthropic.com/v1/messages"
@@ -86,12 +89,14 @@ def estado(forcar=False):
     alertas = []
     for n, b in blocos.items():
         if not b.get("ok"):
-            alertas.append({"bloco": n, "estado": "erro", "texto": f"{n}: {b.get('erro', 'sem dados')}"})
+            alertas.append({"bloco": n, "estado": "erro", "titulo": n, "rotulo": "sem dados",
+                            "texto": f"{n}: {b.get('erro', 'sem dados')}"})
             continue
         dados = b.get("dados", {})
         for it in dados.get("itens", []):
             if it.get("estado") in ("erro", "atencao"):
-                alertas.append({"bloco": n, "estado": it["estado"],
+                alertas.append({"bloco": n, "estado": it["estado"], "titulo": dados.get("titulo", n),
+                                "rotulo": it.get("rotulo"),
                                 "texto": f"{dados.get('titulo', n)}: {it.get('rotulo')} {it.get('valor')}"})
     alertas.sort(key=lambda a: a["estado"] != "erro")
     return {"gerado": _base.agora().isoformat(timespec="seconds"), "blocos": blocos, "alertas": alertas}
@@ -113,14 +118,45 @@ def briefing(bloco=None):
     if bloco in e["blocos"]:
         b = e["blocos"][bloco]
         return {"texto": b.get("resumo") or "Senhor, não tenho esses dados agora.", "alertas": 0}
-    falas = [b["resumo"] for n, b in e["blocos"].items() if b.get("ok") and b.get("resumo") and n != "noticias"]
-    n_erro = sum(1 for a in e["alertas"] if a["estado"] == "erro")
-    n_aten = len(e["alertas"]) - n_erro
-    abertura = f"Senhor, {len(e['alertas'])} pontos pedem atenção" if e["alertas"] else "Senhor, tudo em ordem"
-    if e["alertas"]:
-        abertura += f", {n_erro} deles críticos" if n_erro else ""
-    texto = abertura + ". " + " ".join(falas)
+    # curto de propósito (até BRIEFING_MAX): só os críticos e os números da visão geral
+    criticos = [a for a in e["alertas"] if a["estado"] == "erro"]
+    n_erro, n_aten = len(criticos), len(e["alertas"]) - len(criticos)
+    if criticos:
+        nomes = [f"{a.get('titulo')}, {str(a.get('rotulo') or '').lower()}" for a in criticos[:3]]
+        frases = [f"Senhor, {n_erro} {'alerta crítico' if n_erro == 1 else 'alertas críticos'}: {'; '.join(nomes)}."]
+    else:
+        frases = ["Senhor, nenhum alerta crítico."]
+    custos = e["blocos"].get("custos", {})
+    destaque = custos.get("dados", {}).get("destaque") if custos.get("ok") else None
+    if destaque:
+        frases.append(f"A semana do plano está em {destaque.get('valor')}.")
+    posts = posts_hoje(e["blocos"])
+    if posts:
+        frases.append(f"Hoje são {posts} posts na agenda.")
+    if n_aten:
+        frases.append(f"E {n_aten} pontos de atenção na aba Projetos.")
+    texto = ""
+    for f in frases:
+        if len(texto) + len(f) + 1 > BRIEFING_MAX:
+            break
+        texto = f"{texto} {f}".strip()
     return {"texto": texto, "alertas": len(e["alertas"]), "criticos": n_erro, "atencao": n_aten}
+
+
+def posts_hoje(blocos):
+    """Posts das redes com horário hoje, somando a agenda de todos os coletores (rotinas fora)."""
+    hoje, total = _base.agora().date(), 0
+    for b in blocos.values():
+        if not b.get("ok"):
+            continue
+        for a in b.get("dados", {}).get("agenda") or []:
+            if a.get("rede") == "rotina":
+                continue
+            try:
+                total += datetime.datetime.fromisoformat(a["quando"]).astimezone(_base.FUSO).date() == hoje
+            except (KeyError, TypeError, ValueError):
+                continue
+    return total
 
 
 def estado_para_prompt(e):
@@ -132,6 +168,8 @@ def estado_para_prompt(e):
             continue
         d = b.get("dados", {})
         linhas = [f"## {d.get('titulo', n)}", b.get("resumo", "")]
+        if isinstance(d.get("destaque"), dict):
+            linhas.append(f"- destaque: {d['destaque'].get('valor')} {d['destaque'].get('rotulo')}")
         linhas += [f"- {i.get('rotulo')}: {i.get('valor')} [{i.get('estado')}]" for i in d.get("itens", [])]
         linhas += [f"  · {x.get('quando', '')} {x.get('texto', '')}" for x in d.get("lista", [])[:8]]
         partes.append("\n".join(linhas))
@@ -255,6 +293,27 @@ def registrar_uso(modelo, u):
         f.write(json.dumps({"ts": _base.agora().isoformat(timespec="seconds"), "modelo": modelo,
                             "custo_usd": round(c, 6), "uso": u}) + "\n")
     return c
+
+
+def gasto_hoje():
+    """US$ da API do painel hoje (BRT), somando logs/uso-api.jsonl."""
+    hoje, total = _base.agora().date().isoformat(), 0.0
+    if USO_LOG.exists():
+        for linha in USO_LOG.read_text().splitlines():
+            try:
+                r = json.loads(linha)
+            except ValueError:
+                continue
+            if str(r.get("ts", "")).startswith(hoje):
+                total += r.get("custo_usd", 0) or 0
+    return round(total, 6)
+
+
+def situacao_voz():
+    try:
+        return importlib.import_module("voz").status()
+    except Exception as e:
+        return {"tem_chave": False, "tem_voz": False, "erro": type(e).__name__}
 
 
 def limpar_historico(msgs):
@@ -381,7 +440,8 @@ class Handler(BaseHTTPRequestHandler):
         if rota == "/api/notas":
             return self._json(ler_notas())
         if rota == "/api/uso":
-            return self._json({**uso_sessao, "tem_chave": bool(chave_api())})
+            return self._json({**uso_sessao, "tem_chave": bool(chave_api()), "hoje_usd": gasto_hoje(),
+                               "voz": situacao_voz()})
         if rota == "/favicon.ico":
             self.send_response(204)
             return self.end_headers()
@@ -419,7 +479,33 @@ class Handler(BaseHTTPRequestHandler):
                 except (BrokenPipeError, ConnectionResetError):
                     pass  # navegador cancelou (botão parar)
             return conversar(corpo, enviar)
+        if self.path == "/api/voz":
+            return self._voz(corpo.get("texto") if isinstance(corpo.get("texto"), str) else "")
         self._json({"erro": "não encontrado"}, 404)
+
+    def _voz(self, texto):
+        """Uma frase em mp3. Qualquer falha antes do primeiro pedaço volta como JSON e o navegador usa a voz reserva."""
+        try:
+            fluxo = importlib.import_module("voz").abrir(texto)
+        except Exception as e:
+            codigo = getattr(e, "codigo", "api")
+            msg = getattr(e, "msg", "Senhor, a voz principal falhou. Sigo com a voz reserva.")
+            return self._json({"erro": msg, "codigo": codigo}, 429 if codigo == "teto" else 503)
+        self.send_response(200)
+        self.send_header("Content-Type", "audio/mpeg")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            for pedaco in fluxo:
+                self.wfile.write(pedaco)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # navegador cancelou (botão parar)
+        except Exception as e:
+            sys.stderr.write(f"voz: falhou no meio do áudio ({type(e).__name__})\n")
+        finally:
+            fechar = getattr(fluxo, "close", None)
+            if fechar:
+                fechar()
 
     def log_message(self, fmt, *args):
         if not self.path.startswith("/api/estado"):

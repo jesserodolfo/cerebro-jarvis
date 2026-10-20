@@ -78,6 +78,11 @@ def status_ficha(pasta):
     return nome, ""
 
 
+def corta(txt, n):
+    txt = " ".join(re.sub(r"\s*[\u2014\u2013]\s*", ", ", txt or "").split())
+    return txt if len(txt) <= n else txt[: n - 1].rstrip() + "…"
+
+
 def classe(status):
     emoji = status[:1] if status else ""
     return ESTADO_EMOJI.get(emoji, "info")
@@ -159,16 +164,17 @@ def coletar():
     parados = [s for s in sites if classe(s["status"]) == "info"]
 
     itens = [
-        {"rotulo": "Clientes", "valor": len(sites), "estado": "info"},
-        {"rotulo": "No ar", "valor": len(publicados) - len(caidos),
+        {"id": "sites.clientes", "rotulo": "Clientes", "valor": len(sites), "estado": "info"},
+        {"id": "sites.no-ar", "rotulo": "No ar", "valor": len(publicados) - len(caidos),
          "estado": "erro" if caidos else "ok"},
-        {"rotulo": "Em andamento", "valor": len(andamento),
+        {"id": "sites.andamento", "rotulo": "Em andamento", "valor": len(andamento),
          "estado": "atencao" if andamento else "ok"},
-        {"rotulo": "Parados ou arquivados", "valor": len(parados), "estado": "info"},
-        {"rotulo": "Leads abertos", "valor": len(leads), "estado": "atencao" if leads else "info"},
+        {"id": "sites.parados", "rotulo": "Parados ou arquivados", "valor": len(parados), "estado": "info"},
+        {"id": "sites.leads", "rotulo": "Leads abertos", "valor": len(leads), "estado": "atencao" if leads else "info"},
     ]
     for s in caidos:
-        itens.append({"rotulo": f"{s['nome']} fora do ar", "valor": s["motivo"], "estado": "erro"})
+        itens.append({"id": f"sites.fora-do-ar.{s['slug'].lower()}", "rotulo": f"{s['nome']} fora do ar",
+                      "valor": s["motivo"], "estado": "erro"})
 
     lista = []
     for s in sites:
@@ -203,7 +209,26 @@ def coletar():
         resumo += f" Há {len(leads)} lead aberto esperando resposta." if len(leads) == 1 else \
                   f" Há {len(leads)} leads abertos esperando resposta."
 
-    return ok({"titulo": "Sites", "itens": itens, "lista": lista[:15], "links": links}, resumo)
+    # número grande e frase do painel em abas: sites no ar sobre clientes ativos (no ar + em andamento).
+    # Clientes parados ou encerrados ficam fora da conta pra não fazer "1/7" parecer problema.
+    no_ar_n = len(publicados) - len(caidos)
+    ativos = len(publicados) + len(andamento)
+    destaque = {"valor": f"{no_ar_n}/{ativos}", "rotulo": "sites no ar / clientes ativos",
+                "estado": "erro" if caidos else "atencao" if andamento else "ok"}
+    pontos = []
+    if caidos:
+        pontos.append(", ".join(s["nome"] for s in caidos) + " fora do ar")
+    if len(andamento) == 1:
+        pontos.append(f"{andamento[0]['nome']} em andamento")
+    elif andamento:
+        pontos.append(f"{len(andamento)} sites em andamento")
+    if leads:
+        pontos.append(f"{len(leads)} lead{'s' if len(leads) != 1 else ''} esperando resposta")
+    frase = ", ".join(pontos) + "." if pontos else "Todos os sites ativos estão no ar, sem lead aberto."
+    frase = corta(frase[:1].upper() + frase[1:], 90)
+
+    return ok({"titulo": "Sites", "destaque": destaque, "frase": frase,
+               "itens": itens, "lista": lista[:15], "links": links}, resumo)
 
 
 if __name__ == "__main__":

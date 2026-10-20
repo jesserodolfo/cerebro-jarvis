@@ -2,6 +2,7 @@
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import email.utils
+import re
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -14,8 +15,15 @@ TEMAS = {
     "IA e Claude": ['Anthropic OR "Claude AI"', '"inteligência artificial"'],
     "Marketing e TikTok Shop": ['"TikTok Shop"', '"marketing digital"'],
 }
+IDS_TEMA = {"IA e Claude": "noticias.ia-claude", "Marketing e TikTok Shop": "noticias.marketing-tiktok"}
 POR_TEMA = 8
 MAX_LISTA = 15
+
+
+def corta(txt, n):
+    """Corta em n caracteres e tira travessão (manchete vem de fora)."""
+    txt = " ".join(re.sub(r"\s*[\u2014\u2013]\s*", ", ", txt or "").split())
+    return txt if len(txt) <= n else txt[: n - 1].rstrip() + "…"
 
 
 def buscar(termo):
@@ -69,7 +77,8 @@ def coletar():
     for tema, lst in por_tema.items():
         termos_falhos = [t for t in TEMAS[tema] if t in falhas]
         estado = "erro" if len(termos_falhos) == len(TEMAS[tema]) else "atencao" if termos_falhos else "ok"
-        itens.append({"rotulo": tema, "valor": f"{len(lst)} notícias", "estado": estado})
+        itens.append({"id": IDS_TEMA.get(tema, "noticias." + re.sub(r"\W+", "-", tema.lower()).strip("-")),
+                      "rotulo": tema, "valor": f"{len(lst)} notícias", "estado": estado})
 
     todas = sorted(((tema, n) for tema, lst in por_tema.items() for n in lst),
                    key=lambda par: par[1]["quando"], reverse=True)[:MAX_LISTA]
@@ -83,7 +92,13 @@ def coletar():
             frases.append(f"{tema}: " + "; e ".join(n["titulo"] for n in lst[:2]) + ".")
     resumo = " ".join(frases) if frases else "Não encontrei notícias nas últimas 48 horas."
 
-    return ok({"titulo": "Notícias", "itens": itens, "lista": lista,
+    # número grande e frase do painel em abas (itens e lista seguem iguais)
+    total = sum(len(lst) for lst in por_tema.values())
+    destaque = {"valor": str(total), "rotulo": "notícias hoje",
+                "estado": "ok" if total and not falhas else "atencao"}
+    frase = corta(todas[0][1]["titulo"], 90) if todas else "Sem notícias nas últimas 48 horas."
+
+    return ok({"titulo": "Notícias", "destaque": destaque, "frase": frase, "itens": itens, "lista": lista,
                "links": [{"rotulo": "Google Notícias", "url": "https://news.google.com/?hl=pt-BR&gl=BR&ceid=BR:pt-419"}]},
               resumo)
 

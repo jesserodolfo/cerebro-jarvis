@@ -7,14 +7,14 @@
 <style>
 :root{
   --fundo:#04070d; --fundo2:#081120; --painel:rgba(10,22,40,.72); --borda:rgba(45,212,255,.16);
-  --tema:#2dd4ff; --tema-forte:#00a6e6; --violeta:#8b7cff; --texto:#d9ecff; --suave:#7d93ae;
+  --tema:#2dd4ff; --tema-forte:#00a6e6; --violeta:#8b7cff; --celeste:#7dd3fc; --texto:#d9ecff; --suave:#7d93ae;
   --ok:#10b981; --atencao:#fbbf24; --erro:#ff5547; --info:#8a90a6;
   --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%}
-body{background:radial-gradient(1200px 700px at 30% -10%,#0b2040 0%,var(--fundo) 60%) fixed,var(--fundo);
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(1200px 700px at 50% -10%,#0b2040 0%,var(--fundo) 60%) fixed,var(--fundo);
   color:var(--texto);font-family:var(--sans);font-size:15px;line-height:1.45;overflow-x:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 .oculto{display:none!important}
@@ -35,65 +35,126 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn-ativar:hover{background:rgba(45,212,255,.16)}
 .dica{font-family:var(--mono);font-size:12px;letter-spacing:.3em;color:var(--suave)}
 
-/* ---------- app ---------- */
-#app{max-width:1500px;margin:0 auto;padding:14px 16px 40px}
-header{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 0 14px;border-bottom:1px solid var(--borda)}
+/* ---------- topo e abas ---------- */
+#app{max-width:1500px;margin:0 auto;padding:12px 16px 40px}
+.topo{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:6px 0 12px;border-bottom:1px solid var(--borda)}
 .marca{font-family:var(--mono);font-weight:800;letter-spacing:.25em;font-size:20px;
   background:linear-gradient(90deg,var(--tema),var(--violeta));-webkit-background-clip:text;background-clip:text;color:transparent}
 .status{font-family:var(--mono);font-size:11px;letter-spacing:.18em;padding:4px 10px;border:1px solid var(--borda);border-radius:999px;color:var(--suave)}
 .status.vivo{color:var(--tema);border-color:rgba(45,212,255,.5)}
 .espaco{flex:1}
+.abas{display:flex;gap:4px}
+.aba{font-family:var(--mono);font-size:12px;letter-spacing:.14em;padding:8px 12px;border:1px solid transparent;border-radius:8px;
+  background:none;color:var(--suave);cursor:pointer;white-space:nowrap}
+.aba:hover{color:var(--texto)}
+.aba.ativo{color:var(--tema);border-color:rgba(45,212,255,.4);background:rgba(45,212,255,.07)}
 .grupo{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .chip{font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:6px 10px;border-radius:6px;border:1px solid var(--borda);
   background:rgba(255,255,255,.02);cursor:pointer;white-space:nowrap}
 .chip.ativo{border-color:var(--tema);color:var(--tema);background:rgba(45,212,255,.08)}
 .chip:disabled{opacity:.4;cursor:default}
-select.chip{max-width:190px}
+select.chip{max-width:170px}
 .custo{font-family:var(--mono);font-size:11px;color:var(--suave)}
 .aviso{margin:12px 0 0;padding:10px 14px;border-radius:8px;border:1px solid rgba(251,191,36,.45);background:rgba(251,191,36,.08);color:#ffe3a0;font-size:14px}
 .aviso code{font-family:var(--mono);font-size:12px;background:rgba(0,0,0,.35);padding:1px 6px;border-radius:4px}
-
-.grade{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;margin-top:16px}
-@media(min-width:1100px){.grade{grid-template-columns:minmax(0,1.08fr) minmax(0,1fr)}}
 .caixa{background:var(--painel);border:1px solid var(--borda);border-radius:14px;backdrop-filter:blur(6px)}
+.painel-aba{display:none;margin-top:16px}
+.painel-aba.ativo{display:block}
+.titulo-aba{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.titulo-aba h2{margin:0;font-family:var(--mono);font-size:14px;letter-spacing:.2em;color:var(--texto)}
+.titulo-aba span{color:var(--suave);font-size:13px}
+.rotulo{font-family:var(--mono);font-size:11px;letter-spacing:.18em;color:var(--suave);text-transform:uppercase}
+.ponto{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+.ponto.ok{background:var(--ok)}.ponto.atencao{background:var(--atencao)}.ponto.erro{background:var(--erro);box-shadow:0 0 8px var(--erro)}.ponto.info{background:var(--info)}
+a{color:var(--tema);text-decoration:none}a:hover{text-decoration:underline}
 
-/* orbe */
-.palco{display:flex;flex-direction:column;align-items:center;padding:18px 16px 16px}
-.orbe{position:relative;width:200px;height:200px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.orbe .nucleo{position:absolute;inset:58px;border-radius:50%;
-  background:radial-gradient(circle at 50% 45%,#e9fbff 0%,var(--tema) 28%,#0a7fb8 62%,rgba(8,40,70,0) 72%);
-  box-shadow:0 0 40px rgba(45,212,255,.7),0 0 90px rgba(45,212,255,.35)}
-.orbe .anel{position:absolute;border-radius:50%;border:1px solid rgba(45,212,255,.45)}
-.orbe .a1{inset:40px;border-style:dashed;animation:gira 18s linear infinite}
-.orbe .a2{inset:22px;border-color:rgba(139,124,255,.35);border-top-color:var(--tema);animation:gira 9s linear infinite reverse}
-.orbe .a3{inset:4px;border-color:rgba(45,212,255,.18)}
-.orbe .onda{position:absolute;inset:58px;border-radius:50%;border:2px solid var(--tema);opacity:0}
-@keyframes gira{to{transform:rotate(360deg)}}
-@keyframes pulsoLento{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.06);opacity:1}}
-@keyframes pulsoRapido{0%,100%{transform:scale(.94)}50%{transform:scale(1.1)}}
-@keyframes onda{0%{transform:scale(1);opacity:.75}100%{transform:scale(2.3);opacity:0}}
-.orbe.ocioso .nucleo{animation:pulsoLento 4s ease-in-out infinite}
-.orbe.ouvindo .nucleo{animation:pulsoLento 1.6s ease-in-out infinite}
-.orbe.ouvindo .onda{animation:onda 1.6s ease-out infinite}
-.orbe.ouvindo .o2{animation-delay:.53s}.orbe.ouvindo .o3{animation-delay:1.06s}
-.orbe.pensando .nucleo{animation:pulsoRapido .55s ease-in-out infinite;filter:hue-rotate(35deg)}
-.orbe.pensando .a1{animation-duration:2.4s}.orbe.pensando .a2{animation-duration:1.4s}
-.orbe.falando .nucleo{animation:pulsoLento 1.1s ease-in-out infinite}
-.orbe.falando .onda{animation:onda 2.6s ease-out infinite;border-width:1px}
-.orbe.falando .o2{animation-delay:.86s}.orbe.falando .o3{animation-delay:1.72s}
-.nome-assist{font-family:var(--mono);font-size:13px;letter-spacing:.5em;margin:8px 0 2px;color:var(--tema)}
-.conversa{width:100%;margin-top:12px;display:grid;gap:8px}
-.linha{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:baseline}
-.linha span{font-family:var(--mono);font-size:11px;letter-spacing:.2em;color:var(--suave)}
-.linha p{margin:0;min-height:1.4em;overflow-wrap:anywhere}
-.linha.jarvis p{color:#eaf7ff}
-#formTexto{display:flex;gap:8px;margin-top:6px}
-#formTexto input{flex:1;min-width:0;padding:11px 14px;border-radius:10px;border:1px solid var(--borda);background:rgba(0,0,0,.3);outline:none}
+/* ---------- visão geral ---------- */
+.geral{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:1100px){.geral{grid-template-columns:300px minmax(0,1fr) 300px;align-items:start}}
+@media(max-width:1099px){.centro{order:1}.col-crit{order:2}.col-tempo{order:3}}
+.coluna{padding:14px}
+.coluna h3{margin:0 0 10px;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--suave)}
+.centro{display:flex;flex-direction:column;align-items:center;min-width:0}
+.reator{position:relative;width:min(460px,100%);aspect-ratio:1}
+#orbe{width:100%;height:100%;display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.medidor{position:absolute;display:grid;gap:0;padding:4px 0 4px 10px;border-left:2px solid var(--cor,var(--tema));max-width:46%}
+.medidor b{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1.1;color:#fff;white-space:nowrap}
+.medidor span{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--suave);text-transform:uppercase}
+.medidor.m1{top:0;left:0}.medidor.m2{top:0;right:0;border-left:0;border-right:2px solid var(--cor);padding:4px 10px 4px 0;text-align:right}
+.medidor.m3{bottom:0;left:0}.medidor.m4{bottom:0;right:0;border-left:0;border-right:2px solid var(--cor);padding:4px 10px 4px 0;text-align:right}
+.filme{width:min(760px,100%);text-align:center;margin-top:6px;min-height:92px}
+.filme .voce{margin:0 0 6px;font-size:13px;color:var(--suave);font-style:italic;min-height:1.2em}
+.filme .jarvis{margin:0;font-size:19px;line-height:1.5;color:#f2f9ff;text-shadow:0 0 14px rgba(45,212,255,.35),0 2px 3px #000;
+  overflow-wrap:anywhere;min-height:1.5em}
+#formTexto{display:flex;gap:8px;margin-top:12px;width:min(560px,100%)}
+#formTexto input{flex:1;min-width:0;padding:10px 14px;border-radius:10px;border:1px solid var(--borda);background:rgba(0,0,0,.3);outline:none}
 #formTexto input:focus{border-color:var(--tema)}
-.atalhos{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.atalhos{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:10px}
+.tempo{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:64vh;overflow:auto}
+.tempo li{display:grid;grid-template-columns:44px 26px minmax(0,1fr) 10px;gap:8px;align-items:center;padding:6px 4px;border-radius:8px;cursor:pointer;font-size:13px}
+.tempo li:hover{background:rgba(45,212,255,.06)}
+.tempo li.passou{opacity:.55}
+.tempo .hora{font-family:var(--mono);font-size:12px;color:var(--celeste)}
+.tempo .txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tempo .txt small{color:var(--suave);margin-right:6px}
+.tempo .agora{display:block;grid-template-columns:none;cursor:default;padding:2px 0;font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--tema);
+  border-top:1px dashed rgba(45,212,255,.5);margin:4px 0;border-radius:0}
+.tempo .agora:hover{background:none}
+.rede{font-family:var(--mono);font-size:10px;font-weight:700;text-align:center;padding:2px 0;border-radius:4px;color:#04070d}
+.rede.tiktok{background:#e2e8f0}.rede.instagram{background:#f472b6}.rede.youtube{background:#ff5547}.rede.facebook{background:#60a5fa}.rede.rotina{background:var(--celeste)}
+.vazio{color:var(--suave);font-size:13px;margin:0}
+.criticos{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.criticos li{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,85,71,.35);background:rgba(255,85,71,.07);cursor:pointer}
+.criticos li:hover{border-color:var(--erro)}
+.criticos b{display:block;font-size:14px;color:#ffe1de}
+.criticos small{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#ff9a90;text-transform:uppercase}
+.mais-atencao{margin-top:12px;font-size:12px;color:var(--atencao);background:none;border:0;padding:0;cursor:pointer}
 
-/* second brain */
-.brain{margin-top:18px;padding:14px 14px 10px}
+/* ---------- agenda ---------- */
+.semana-wrap{overflow-x:auto;padding:4px}
+.semana{display:grid;grid-template-columns:96px repeat(7,minmax(130px,1fr));gap:6px;min-width:1000px}
+.semana .cab{font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--suave);padding:6px 8px;text-transform:uppercase}
+.semana .cab.hoje{color:var(--tema)}
+.semana .rede-nome{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;padding:8px}
+.semana .rede-nome .rede{width:26px}
+.celula{min-height:86px;padding:6px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid rgba(45,212,255,.08);display:grid;gap:4px;align-content:start}
+.celula.hoje{border-color:rgba(45,212,255,.35);background:rgba(45,212,255,.05)}
+.post{display:grid;grid-template-columns:8px minmax(0,1fr);gap:6px;align-items:center;font-size:12px;padding:3px 4px;border-radius:6px;cursor:pointer}
+.post:hover{background:rgba(45,212,255,.08)}
+.post span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post .h{font-family:var(--mono);color:var(--celeste);margin-right:4px}
+.celula .extra{font-size:11px;color:var(--suave);padding-left:4px}
+.sem-dado{font-size:11px;color:var(--suave);padding:4px}
+
+/* ---------- projetos ---------- */
+.projetos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:14px}
+.bloco{padding:16px;display:flex;flex-direction:column;gap:6px;cursor:pointer;min-width:0;transition:border-color .2s}
+.bloco:hover{border-color:rgba(45,212,255,.5)}
+.bloco h3{margin:0;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+.bloco h3 .hora{margin-left:auto;font-size:11px;color:var(--suave);letter-spacing:0}
+.numero{font-family:var(--mono);font-size:46px;font-weight:700;line-height:1.05;margin-top:6px;color:#fff}
+.numero.atencao{color:var(--atencao)}.numero.erro{color:var(--erro)}.numero.ok{color:#e9fbff}
+.bloco .frase{margin:2px 0 0;color:#c3d6ec;font-size:14px}
+.bloco .rodape{margin-top:auto;padding-top:8px;display:flex;gap:12px;font-size:12px;color:var(--suave)}
+.bloco.erro{border-color:rgba(255,85,71,.45)}
+
+/* ---------- gaveta ---------- */
+.fundo-gaveta{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45)}
+.gaveta{position:fixed;top:0;right:0;bottom:0;z-index:41;width:min(520px,100%);background:var(--fundo2);border-left:1px solid var(--borda);
+  transform:translateX(102%);transition:transform .25s ease;overflow:auto;padding:18px 18px 40px}
+.gaveta.aberta{transform:none}
+.gaveta .fechar{position:sticky;top:0;float:right;width:34px;height:34px;border-radius:8px;border:1px solid var(--borda);background:var(--fundo2);cursor:pointer}
+.gaveta h2{margin:0 0 4px;font-family:var(--mono);font-size:15px;letter-spacing:.18em;display:flex;align-items:center;gap:8px}
+.gaveta .resumo{color:#c3d6ec;margin:8px 0 14px}
+.gaveta ul{list-style:none;margin:0 0 16px;padding:0;display:grid;gap:6px}
+.gaveta li{display:grid;grid-template-columns:10px minmax(0,1fr);gap:8px;align-items:baseline;font-size:13px}
+.gaveta li .ponto{transform:translateY(-1px)}
+.gaveta li b{font-weight:600;color:#e6f3ff}
+.gaveta li span{overflow-wrap:anywhere}
+.gaveta .links{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+
+/* ---------- cérebro ---------- */
+.brain{padding:14px 14px 10px}
 .brain-topo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .brain-topo h2{margin:0;font-family:var(--mono);font-size:14px;letter-spacing:.18em}
 .brain-topo .sub{color:var(--suave);font-size:12px}
@@ -101,7 +162,7 @@ select.chip{max-width:190px}
 .btn-ic{width:30px;height:30px;border-radius:8px;border:1px solid var(--borda);background:rgba(255,255,255,.03);cursor:pointer;line-height:1}
 .btn-ic:hover{border-color:var(--tema);color:var(--tema)}
 #grafo{width:100%;margin-top:6px}
-#grafo svg{display:block;width:100%;height:auto;overflow:visible}
+#grafo svg{display:block;width:100%;height:min(calc(100vh - 230px),900px);min-height:360px;overflow:visible}
 #grafo .aresta{fill:none;stroke:url(#gradAresta);stroke-width:1.15;stroke-opacity:.5;stroke-dasharray:5 9;animation:desliza 7s linear infinite}
 #grafo .raio{stroke-width:.7;stroke-opacity:.22}
 #grafo .no{cursor:pointer}
@@ -119,30 +180,24 @@ select.chip{max-width:190px}
 .legenda i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
 .legenda .injetado{margin-left:auto;color:var(--ok);font-family:var(--mono);font-size:11px}
 
-/* cards */
-#alertas{padding:12px 14px}
-#alertas h3{margin:0 0 6px;font-family:var(--mono);font-size:12px;letter-spacing:.18em;color:var(--suave)}
-#alertas ul{margin:0;padding:0;list-style:none;display:grid;gap:4px}
-#alertas li{font-size:13px;cursor:pointer;overflow-wrap:anywhere}
-#alertas li:hover{color:#fff}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:14px;margin-top:14px}
-.card{padding:14px;display:flex;flex-direction:column;gap:8px;min-width:0}
-.card h3{margin:0;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase}
-.card .hora{margin-left:auto;font-size:11px;color:var(--suave);letter-spacing:0;text-transform:none}
-.card .resumo{margin:0;color:#c3d6ec;font-size:14px}
-.card ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}
-.card li{display:grid;grid-template-columns:10px minmax(0,1fr);gap:8px;font-size:13px;align-items:baseline}
-.card li b{font-weight:600;color:#e6f3ff}
-.card li span{overflow-wrap:anywhere}
-.card .lista li{color:#b6c9df}
-.card .mais{align-self:flex-start;font-size:12px;color:var(--tema);background:none;border:0;padding:0;cursor:pointer}
-.card .links{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px}
-.card a{color:var(--tema);text-decoration:none}.card a:hover{text-decoration:underline}
-.card.erro{border-color:rgba(255,85,71,.45)}
-.ponto{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none;transform:translateY(-1px)}
-.ponto.ok{background:var(--ok)}.ponto.atencao{background:var(--atencao)}.ponto.erro{background:var(--erro);box-shadow:0 0 8px var(--erro)}.ponto.info{background:var(--info)}
+/* ---------- custos ---------- */
+.custos{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@media(min-width:1000px){.custos{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);align-items:start}}
+.custos .caixa{padding:16px}
+.barra{display:grid;gap:6px;margin-bottom:16px}
+.barra .linha-b{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.barra .linha-b b{font-size:15px}
+.barra .linha-b .val{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--suave)}
+.trilho{position:relative;height:12px;border-radius:999px;background:rgba(45,212,255,.08);overflow:hidden}
+.trilho i{position:absolute;left:0;top:0;bottom:0;border-radius:999px;background:var(--tema);box-shadow:0 0 12px rgba(45,212,255,.5)}
+.trilho i.atencao{background:var(--atencao);box-shadow:0 0 12px rgba(251,191,36,.5)}
+.trilho i.erro{background:var(--erro);box-shadow:0 0 12px rgba(255,85,71,.5)}
+.trilho i.ok{background:var(--ok);box-shadow:0 0 12px rgba(16,185,129,.5)}
+.lista-simples{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lista-simples li{display:grid;grid-template-columns:10px minmax(0,1fr);gap:8px;align-items:baseline;font-size:13px}
+.lista-simples b{color:#e6f3ff;font-weight:600}
 
-/* editor */
+/* ---------- editor ---------- */
 .modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal form{width:min(520px,100%);padding:18px;display:grid;gap:10px;background:var(--fundo2)}
 .modal h3{margin:0;font-family:var(--mono);letter-spacing:.15em;font-size:14px}
@@ -151,7 +206,21 @@ select.chip{max-width:190px}
 .modal textarea{min-height:120px;resize:vertical}
 .modal .acoes{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
 .modal .excluir{margin-right:auto;border-color:rgba(255,85,71,.5);color:#ff9a90}
-@media(prefers-reduced-motion:reduce){*{animation-duration:0s!important;animation-iteration-count:1!important}}
+
+/* ---------- celular ---------- */
+@media(max-width:760px){
+  #app{padding-bottom:84px}
+  .abas{position:fixed;left:0;right:0;bottom:0;z-index:30;justify-content:space-around;padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+    background:rgba(4,7,13,.96);border-top:1px solid var(--borda)}
+  .aba{padding:8px 6px;font-size:10px;letter-spacing:.06em}
+  .custo,select.chip{display:none}
+  .medidor{position:static;max-width:none;border-right:0!important;border-left:2px solid var(--cor)!important;padding:4px 0 4px 10px!important;text-align:left!important}
+  .reator{display:grid;grid-template-columns:1fr 1fr;gap:10px;aspect-ratio:auto}
+  #orbe{grid-column:1/-1;aspect-ratio:1;height:auto;order:-1}
+  .medidor b{font-size:22px}
+  .filme .jarvis{font-size:17px}
+}
+@media(prefers-reduced-motion:reduce){*{animation-duration:0s!important;animation-iteration-count:1!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -160,7 +229,7 @@ select.chip{max-width:190px}
   <div class="logo">JARVIS</div>
   <hr class="hr">
   <div class="pisca-txt">SINCRONIZANDO DADOS...</div>
-  <div class="versao">v5.0 · REBUILD</div>
+  <div class="versao">v6.0 · ABAS</div>
 </div>
 
 <div id="ativar" class="tela oculto">
@@ -170,15 +239,25 @@ select.chip{max-width:190px}
 </div>
 
 <div id="app" class="oculto">
-  <header>
+  <header class="topo">
     <span class="marca">JARVIS</span>
     <span id="status" class="status">AGUARDANDO</span>
+    <nav class="abas" role="tablist" aria-label="Abas do painel">
+      <button class="aba ativo" role="tab" data-aba="geral">VISÃO GERAL</button>
+      <button class="aba" role="tab" data-aba="agenda">AGENDA</button>
+      <button class="aba" role="tab" data-aba="projetos">PROJETOS</button>
+      <button class="aba" role="tab" data-aba="cerebro">CÉREBRO</button>
+      <button class="aba" role="tab" data-aba="custos">CUSTOS</button>
+    </nav>
     <span class="espaco"></span>
     <div class="grupo" role="group" aria-label="Modo do cérebro">
       <button class="chip ativo" data-modo="rapido" title="Haiku 5.5: resposta rápida">RÁPIDO</button>
       <button class="chip" data-modo="profundo" title="Opus 5.5: pensa melhor">PROFUNDO</button>
     </div>
-    <select id="selVoz" class="chip" aria-label="Voz"></select>
+    <div class="grupo">
+      <button id="btnVoz" class="chip" title="Voz do Jarvis (ElevenLabs) ou voz reserva do navegador">VOZ</button>
+      <select id="selVoz" class="chip" aria-label="Voz reserva" title="Voz reserva do navegador"></select>
+    </div>
     <span id="custo" class="custo">API: US$ 0,0000</span>
     <div class="grupo">
       <button id="btnMic" class="chip" title="Liga e desliga o microfone">MIC</button>
@@ -188,30 +267,53 @@ select.chip{max-width:190px}
   </header>
   <div id="aviso" class="aviso oculto"></div>
 
-  <main class="grade">
-    <section>
-      <div class="caixa palco">
-        <div id="orbe" class="orbe ocioso" title="Clique para falar">
-          <div class="anel a3"></div><div class="anel a2"></div><div class="anel a1"></div>
-          <div class="onda o1"></div><div class="onda o2"></div><div class="onda o3"></div>
-          <div class="nucleo"></div>
-        </div>
-        <div class="nome-assist">JARVIS</div>
-        <div class="conversa">
-          <div class="linha voce"><span>VOCÊ</span><p id="falaVoce">…</p></div>
-          <div class="linha jarvis"><span>JARVIS</span><p id="falaJarvis">…</p></div>
+  <main>
+    <section id="aba-geral" class="painel-aba ativo">
+      <div class="geral">
+        <aside class="caixa coluna col-tempo">
+          <h3>HOJE</h3>
+          <ol id="tempo" class="tempo"></ol>
+        </aside>
+        <div class="centro">
+          <div class="reator">
+            <canvas id="orbe" title="Clique para falar" aria-label="Orbe do Jarvis"></canvas>
+            <div class="medidor m1" style="--cor:var(--tema)"><b id="m1">··</b><span>semana do plano</span></div>
+            <div class="medidor m2" style="--cor:var(--violeta)"><b id="m2">··</b><span>posts hoje</span></div>
+            <div class="medidor m3" id="m3cx" style="--cor:var(--erro)"><b id="m3">··</b><span>alertas críticos</span></div>
+            <div class="medidor m4" style="--cor:var(--celeste)"><b id="m4">··</b><span>API hoje</span></div>
+          </div>
+          <div class="filme" aria-live="polite">
+            <p id="falaVoce" class="voce"></p>
+            <p id="falaJarvis" class="jarvis">…</p>
+          </div>
           <form id="formTexto" autocomplete="off">
             <input id="entrada" placeholder="ou digite e tecle Enter" aria-label="Pergunta">
           </form>
           <div class="atalhos">
             <button class="chip" data-cmd="resumo do dia">RESUMO DO DIA</button>
+            <button class="chip" data-cmd="como estão os agentes">AGENTES</button>
             <button class="chip" data-cmd="notícias">NOTÍCIAS</button>
-            <button class="chip" data-cmd="como estão os custos da semana?">CUSTOS</button>
             <button class="chip" data-cmd="pensa melhor">PENSA MELHOR</button>
           </div>
         </div>
+        <aside class="caixa coluna col-crit">
+          <h3>CRÍTICOS</h3>
+          <div id="criticos"></div>
+        </aside>
       </div>
+    </section>
 
+    <section id="aba-agenda" class="painel-aba">
+      <div class="titulo-aba"><h2>AGENDA DA SEMANA</h2><span id="agendaResumo"></span></div>
+      <div class="caixa semana-wrap"><div id="semana" class="semana"></div></div>
+    </section>
+
+    <section id="aba-projetos" class="painel-aba">
+      <div class="titulo-aba"><h2>PROJETOS</h2><span>toque num bloco para ver o detalhe</span></div>
+      <div id="projetos" class="projetos"></div>
+    </section>
+
+    <section id="aba-cerebro" class="painel-aba">
       <div class="caixa brain">
         <div class="brain-topo">
           <h2>🧠 SECOND BRAIN</h2>
@@ -226,12 +328,21 @@ select.chip{max-width:190px}
       </div>
     </section>
 
-    <section>
-      <div id="alertas" class="caixa"></div>
-      <div id="cards" class="cards"></div>
+    <section id="aba-custos" class="painel-aba">
+      <div class="titulo-aba"><h2>CUSTOS DA SEMANA</h2><span id="custosResumo"></span></div>
+      <div class="custos">
+        <div class="caixa" id="fatias"></div>
+        <div class="caixa" id="custosExtra"></div>
+      </div>
     </section>
   </main>
 </div>
+
+<div id="fundoGaveta" class="fundo-gaveta oculto"></div>
+<aside id="gaveta" class="gaveta" aria-hidden="true">
+  <button id="fecharGaveta" class="fechar" aria-label="Fechar">✕</button>
+  <div id="gavetaConteudo"></div>
+</aside>
 
 <div id="editor" class="modal oculto">
   <form id="formNota" class="caixa">
@@ -263,43 +374,97 @@ const AREA = {
   relacoes: { label: "Relações", color: "#ec4899" }, meta: { label: "Você", color: "#8a90a6" }
 };
 const ORDEM_AREAS = ["meta", "metas", "trabalho", "projetos", "financas", "aprendizado", "saude", "relacoes"];
-const ORDEM_CARDS = ["tiktok", "instagram", "jesusepop", "custos", "agentes", "sites", "noticias"];
+const ORDEM_PROJETOS = ["tiktok", "instagram", "jesusepop", "melavitta", "agentes", "sites", "custos", "noticias"];
+const REDES = [["tiktok", "TikTok", "TT"], ["instagram", "Instagram", "IG"], ["youtube", "YouTube", "YT"], ["facebook", "Facebook", "FB"]];
+const SIGLA = { tiktok: "TT", instagram: "IG", youtube: "YT", facebook: "FB", rotina: "⚙" };
+const LIMITE_API_DIA = 100 / 30; // crédito promocional de US$100/mês da API, só pra escala do anel
 const VOZES_MASC = ["Reed", "Eddy", "Rocko", "Grandpa", "Felipe", "Daniel", "Ricardo", "Luiz"];
 const WAKE = /\b(jarvis|jarbas|jarvas|djarvis|jarvi)\b/i;
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const norm = s => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 const lerGuardado = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const linkSeguro = u => /^https?:\/\//i.test(String(u || ""));
+const usd = v => "US$ " + (Number(v) || 0).toFixed(2).replace(".", ",");
+// datas sempre em BRT (UTC-3), seja qual for o fuso do navegador
+const brt = d => new Date(d.getTime() - 3 * 3600e3);
+const diaBRT = d => brt(d).toISOString().slice(0, 10);
+const horaBRT = d => brt(d).toISOString().slice(11, 16);
 
-let notas = [], rel = [], estadoAtual = null;
+let notas = [], rel = [], estadoAtual = null, usoAtual = {};
 let historico = [], ultimaPergunta = "";
 let modo = lerGuardado("jarvis_modo") === "profundo" ? "profundo" : "rapido";
+let abaAtual = "geral", blocoGaveta = null;
 let busy = false, armado = false, tArmado = null, micLigado = false, escutando = false, rec = null;
-let filaFala = [], falando = false, respostaAberta = false, fraseBuf = "", textoResp = "", abortCtl = null;
+let filaFala = [], falando = false, respostaAberta = false, fraseBuf = "", textoResp = "", abortCtl = null, geracaoFala = 0;
 let vozes = [], voz = null;
+let vozEleven = false, vozFalhou = false, preferirReserva = lerGuardado("jarvis_reserva") === "1", avisouReserva = false;
 
 // ---------- interface ----------
+let estadoOrbe = "ocioso";
 function setEstado(e) {
-  $("#orbe").className = "orbe " + e;
+  estadoOrbe = e;
   const st = $("#status");
   const rot = { ocioso: micLigado ? 'DIGA "EI JARVIS"' : "MIC DESLIGADO", ouvindo: "OUVINDO", pensando: "PENSANDO", falando: "FALANDO" }[e];
   st.textContent = rot;
   st.classList.toggle("vivo", e !== "ocioso");
 }
-const mostrarVoce = t => { $("#falaVoce").textContent = t; };
+const mostrarVoce = t => { $("#falaVoce").textContent = t ? `você: ${t}` : ""; };
 const setJarvis = t => { $("#falaJarvis").textContent = t || "…"; };
 function aviso(html) { const a = $("#aviso"); if (!html) return a.classList.add("oculto"); a.innerHTML = html; a.classList.remove("oculto"); }
 function atualizarMic() { $("#btnMic").classList.toggle("ativo", micLigado); $("#btnMic").textContent = micLigado ? "MIC ON" : "MIC OFF"; }
 function atualizarModo() {
   document.querySelectorAll("[data-modo]").forEach(b => b.classList.toggle("ativo", b.dataset.modo === modo));
 }
-function atualizarCusto(usd) {
-  $("#custo").textContent = "API: US$ " + (usd || 0).toFixed(4).replace(".", ",");
+function atualizarCusto(v) {
+  $("#custo").textContent = "API: US$ " + (v || 0).toFixed(4).replace(".", ",");
+}
+const usarEleven = () => vozEleven && !preferirReserva;
+function atualizarVoz() {
+  const b = $("#btnVoz"), v = usoAtual.voz || {};
+  b.textContent = usarEleven() ? "VOZ JARVIS" : "VOZ RESERVA";
+  b.classList.toggle("ativo", usarEleven());
+  b.disabled = !vozEleven && !preferirReserva;
+  b.title = vozEleven
+    ? `ElevenLabs: ${Math.round(v.hoje_creditos || 0)} de ${v.teto || 0} créditos hoje. Clique pra alternar com a voz reserva.`
+    : (v.tem_chave === false ? "Falta ELEVENLABS_API_KEY no painel/.env: usando a voz reserva do navegador."
+      : v.tem_voz === false ? "Falta ELEVENLABS_VOICE_ID no painel/.env: usando a voz reserva do navegador."
+      : "Voz do ElevenLabs indisponível agora: usando a voz reserva do navegador.");
 }
 
-// ---------- voz: fala (TTS) ----------
+// ---------- abas ----------
+function trocarAba(nome) {
+  if (!document.getElementById("aba-" + nome)) return;
+  abaAtual = nome; guardar("jarvis_aba", nome);
+  document.querySelectorAll(".aba").forEach(b => { const on = b.dataset.aba === nome; b.classList.toggle("ativo", on); b.setAttribute("aria-selected", on); });
+  document.querySelectorAll(".painel-aba").forEach(s => s.classList.toggle("ativo", s.id === "aba-" + nome));
+  if (nome === "geral") ajustarCanvas();
+}
+document.querySelectorAll(".aba").forEach(b => b.onclick = () => trocarAba(b.dataset.aba));
+
+// ---------- voz: fala (ElevenLabs pelo servidor, voz do navegador como reserva) ----------
+const audioEl = new Audio();
+let audioCtx = null, analisador = null, amostra = null;
+function prepararAudio() {
+  // chamado no clique de ativar: o gesto libera o áudio e o analisador alimenta a orbe
+  try {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const fonte = audioCtx.createMediaElementSource(audioEl);
+    analisador = audioCtx.createAnalyser(); analisador.fftSize = 256;
+    fonte.connect(analisador); analisador.connect(audioCtx.destination);
+    amostra = new Uint8Array(analisador.fftSize);
+  } catch (e) { analisador = null; }
+}
+function nivelVoz() {
+  if (!analisador || audioEl.paused) return null;
+  analisador.getByteTimeDomainData(amostra);
+  let s = 0;
+  for (const v of amostra) { const x = (v - 128) / 128; s += x * x; }
+  return Math.min(1, Math.sqrt(s / amostra.length) * 3.2);
+}
 function carregarVozes() {
   vozes = speechSynthesis.getVoices().filter(v => /^pt[-_]BR/i.test(v.lang));
   const salva = lerGuardado("jarvis_voz");
@@ -320,20 +485,55 @@ function limparFala(t) {
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, "")
     .replace(/\s+/g, " ").trim();
 }
+async function buscarVoz(t, signal) {
+  try {
+    const r = await fetch("/api/voz", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texto: t }), signal });
+    if (r.ok && (r.headers.get("Content-Type") || "").startsWith("audio/")) return { blob: await r.blob() };
+    const d = await r.json().catch(() => ({}));
+    return { erro: d.codigo || "api", msg: d.erro };
+  } catch (e) { return { erro: e.name === "AbortError" ? "abortado" : "rede" }; }
+}
 function falar(texto) {
   const t = limparFala(texto);
-  if (!t || !("speechSynthesis" in window)) return;
-  filaFala.push(t);
+  if (!t) return;
+  const item = { t };
+  if (usarEleven()) { item.ctl = new AbortController(); item.p = buscarVoz(t, item.ctl.signal); } // já busca enquanto a frase anterior toca
+  filaFala.push(item);
   if (!falando) proximaFala();
 }
-function proximaFala() {
-  const t = filaFala.shift();
-  if (t === undefined) { falando = false; if (!respostaAberta) finalizarTurno(); return; }
+async function proximaFala() {
+  const item = filaFala.shift();
+  if (!item) { falando = false; if (!respostaAberta) finalizarTurno(); return; }
+  const g = geracaoFala;
   falando = true; busy = true;
   pararEscuta(); setEstado("falando");
+  if (item.p) {
+    const res = await item.p;
+    if (g !== geracaoFala) return; // interrompido enquanto buscava
+    if (res.blob) return tocar(res.blob, item.t, g);
+    if (["sem_chave", "sem_voz", "teto", "chave_recusada", "sem_credito"].includes(res.erro)) {
+      // falha que não passa sozinha: o resto da sessão vai na voz reserva
+      vozEleven = false; vozFalhou = true; atualizarVoz();
+      filaFala.forEach(i => { if (i.ctl) i.ctl.abort(); i.p = null; });
+      if (!avisouReserva && res.msg) { avisouReserva = true; return falarNavegador(res.msg, () => falarNavegador(item.t, proximaFala, g), g); }
+    }
+  }
+  falarNavegador(item.t, proximaFala, g);
+}
+function tocar(blob, t, g) {
+  const url = URL.createObjectURL(blob);
+  const fim = () => { audioEl.onended = audioEl.onerror = null; URL.revokeObjectURL(url); if (g === geracaoFala) proximaFala(); };
+  audioEl.onended = fim; audioEl.onerror = fim;
+  audioEl.src = url;
+  if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+  audioEl.play().catch(() => { audioEl.onended = audioEl.onerror = null; URL.revokeObjectURL(url); falarNavegador(t, proximaFala, g); });
+}
+function falarNavegador(t, depois, g) {
+  if (!("speechSynthesis" in window)) return depois();
   const u = new SpeechSynthesisUtterance(t);
   u.lang = "pt-BR"; if (voz) u.voice = voz; u.rate = 1.03; u.pitch = 0.88;
-  u.onend = u.onerror = () => proximaFala();
+  u.onend = u.onerror = () => { if (g === undefined || g === geracaoFala) depois(); };
   speechSynthesis.speak(u);
 }
 function extrairFrases() {
@@ -351,9 +551,12 @@ function finalizarTurno() {
   iniciarEscuta();
 }
 function interromper() {
+  geracaoFala++;
+  filaFala.forEach(i => { if (i.ctl) i.ctl.abort(); });
   filaFala = [];
   respostaAberta = false;
   if (abortCtl) abortCtl.abort();
+  audioEl.onended = audioEl.onerror = null; audioEl.pause();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   falando = false; busy = false;
   setEstado("ocioso");
@@ -407,6 +610,8 @@ function ouvir(txt) {
 }
 
 // ---------- comandos ----------
+const ABAS_FALADAS = [[/visao geral|inicio|tela inicial|principal/, "geral"], [/agenda/, "agenda"], [/projetos/, "projetos"],
+  [/cerebro|second brain|notas/, "cerebro"], [/custos?|gastos?/, "custos"]];
 async function comando(txt) {
   txt = String(txt).trim();
   if (!txt) return;
@@ -414,7 +619,13 @@ async function comando(txt) {
   mostrarVoce(txt);
   const n = norm(txt);
   if (/^(para|pare|silencio|chega|cancela)\b/.test(n)) return interromper();
+  if (/^(abre|abrir|abra|mostra|mostrar|mostre|vai pra|vai para|ir para|volta pra|volta para)\b/.test(n)) {
+    const achada = ABAS_FALADAS.find(([re]) => re.test(n));
+    if (achada) { trocarAba(achada[1]); return responderLocal("Pois não, senhor."); }
+  }
   if (/(resumo do dia|briefing|status geral|como estao (os )?(meus )?projetos)/.test(n)) return falarLocal("/api/briefing");
+  if (/(como (esta|estao) (a |os agentes da )?melavitta|agentes da melavitta)/.test(n)) return falarLocal("/api/briefing?bloco=melavitta");
+  if (/como (esta|estao) (os )?(meus )?agentes/.test(n)) return falarLocal("/api/briefing?bloco=agentes");
   if (/^(noticias|quais (sao )?as noticias|me (da|de) as noticias)/.test(n)) return falarLocal("/api/briefing?bloco=noticias");
   if (/atualiza(r)? (o )?painel/.test(n)) { await carregarEstado(true); return responderLocal("Painel atualizado, senhor."); }
   if (/^(pensa|pense) melhor$/.test(n) || /^(pensa|pense) melhor (nisso|nessa)$/.test(n)) {
@@ -475,6 +686,7 @@ function tratar(ev) {
     setJarvis(ev.texto);
     historico.push({ role: "assistant", content: ev.texto });
     atualizarCusto(ev.sessao_usd);
+    carregarUso();
     if (ev.salvas && ev.salvas.length) carregarNotas().then(() => ev.salvas.forEach(piscar));
   } else if (ev.t === "erro") {
     historico.pop();
@@ -484,6 +696,271 @@ function tratar(ev) {
 }
 function avisoChave() {
   aviso("Falta a chave da API. Crie o arquivo <code>painel/.env</code> com a linha <code>ANTHROPIC_API_KEY=sua-chave</code> (pegue em console.anthropic.com) e reinicie o painel. Resumo do dia, notícias e os cards funcionam sem chave.");
+}
+
+// ---------- orbe (Canvas 2D) ----------
+const cv = $("#orbe"), g2 = cv.getContext("2d");
+const MED = [{ alvo: 0, frac: 0, cor: "#2dd4ff" }, { alvo: 0, frac: 0, cor: "#8b7cff" },
+  { alvo: 0, frac: 0, cor: "#ff5547" }, { alvo: 0, frac: 0, cor: "#7dd3fc" }];
+const lento = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0.15 : 1;
+let nivelSuave = 0;
+function ajustarCanvas() {
+  const r = cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (!r.width) return;
+  const w = Math.round(r.width * dpr);
+  if (cv.width !== w) { cv.width = w; cv.height = w; }
+}
+if ("ResizeObserver" in window) new ResizeObserver(ajustarCanvas).observe(cv);
+function desenharOrbe(ts) {
+  requestAnimationFrame(desenharOrbe);
+  if (document.hidden || abaAtual !== "geral" || !cv.width) return;
+  const W = cv.width, c = W / 2, R = W / 2, t = ts / 1000 * lento, g = g2;
+  g.clearRect(0, 0, W, W);
+  // marcas da borda
+  g.save(); g.translate(c, c); g.rotate(-t * 0.05);
+  g.strokeStyle = "rgba(45,212,255,.28)"; g.lineWidth = Math.max(1, R * 0.006);
+  for (let i = 0; i < 72; i++) {
+    const a = i * Math.PI / 36, l = i % 6 === 0 ? 0.05 : 0.022;
+    g.beginPath(); g.moveTo(Math.cos(a) * R * 0.985, Math.sin(a) * R * 0.985);
+    g.lineTo(Math.cos(a) * R * (0.985 - l), Math.sin(a) * R * (0.985 - l)); g.stroke();
+  }
+  g.restore();
+  // os 4 anéis com os números da visão geral
+  const raios = [0.88, 0.79, 0.70, 0.61];
+  g.lineCap = "round"; g.lineWidth = R * 0.034;
+  MED.forEach((m, i) => {
+    m.frac += (m.alvo - m.frac) * 0.05;
+    const r = R * raios[i];
+    g.strokeStyle = "rgba(45,212,255,.09)";
+    g.beginPath(); g.arc(c, c, r, 0, Math.PI * 2); g.stroke();
+    if (m.frac > 0.003) {
+      g.save(); g.shadowColor = m.cor; g.shadowBlur = R * 0.05; g.strokeStyle = m.cor;
+      g.beginPath(); g.arc(c, c, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(m.frac, 1)); g.stroke(); g.restore();
+    }
+  });
+  // anel tracejado que gira (acelera quando pensa)
+  g.save(); g.translate(c, c); g.rotate(t * (estadoOrbe === "pensando" ? 1.8 : 0.25));
+  g.setLineDash([R * 0.03, R * 0.05]); g.strokeStyle = "rgba(45,212,255,.5)"; g.lineWidth = Math.max(1, R * 0.008);
+  g.beginPath(); g.arc(0, 0, R * 0.52, 0, Math.PI * 2); g.stroke(); g.restore();
+  // núcleo: respira parado, pulsa ouvindo, acelera pensando, segue o volume falando
+  const nv = nivelVoz();
+  nivelSuave += ((nv ?? 0) - nivelSuave) * 0.3;
+  const pulso = estadoOrbe === "falando" ? 1 + (nv !== null ? nivelSuave * 0.24 : 0.06 * Math.sin(t * 7))
+    : estadoOrbe === "pensando" ? 1 + 0.06 * Math.sin(t * 11)
+    : estadoOrbe === "ouvindo" ? 1 + 0.05 * Math.sin(t * 4) : 1 + 0.03 * Math.sin(t * 1.6);
+  const rc = R * 0.3 * pulso;
+  if (estadoOrbe === "ouvindo" || estadoOrbe === "falando") {
+    g.lineWidth = Math.max(1, R * 0.006);
+    for (let k = 0; k < 3; k++) {
+      const f = (t * 0.6 + k / 3) % 1;
+      g.strokeStyle = `rgba(45,212,255,${((1 - f) * 0.5).toFixed(3)})`;
+      g.beginPath(); g.arc(c, c, rc * (1 + f * 0.7), 0, Math.PI * 2); g.stroke();
+    }
+  }
+  const cor = estadoOrbe === "pensando" ? "#8b7cff" : "#2dd4ff";
+  const grad = g.createRadialGradient(c, c * 0.95, 0, c, c, rc);
+  grad.addColorStop(0, "#e9fbff"); grad.addColorStop(0.32, cor); grad.addColorStop(0.78, "#0a5f8f"); grad.addColorStop(1, "rgba(8,40,70,0)");
+  g.save(); g.shadowColor = cor; g.shadowBlur = R * 0.22; g.fillStyle = grad;
+  g.beginPath(); g.arc(c, c, rc, 0, Math.PI * 2); g.fill(); g.restore();
+}
+requestAnimationFrame(desenharOrbe);
+
+// ---------- dados: agenda juntando os coletores ----------
+function agendaTodos(est) {
+  const out = [];
+  for (const [n, b] of Object.entries((est && est.blocos) || {})) {
+    if (!b.ok) continue;
+    for (const a of (b.dados && b.dados.agenda) || []) {
+      const d = new Date(a.quando);
+      if (!isNaN(d)) out.push({ ...a, _d: d, _bloco: n });
+    }
+  }
+  return out.sort((x, y) => x._d - y._d);
+}
+function estadoGeral(b) {
+  if (!b || !b.ok) return "erro";
+  const it = (b.dados && b.dados.itens) || [];
+  if (it.some(i => i.estado === "erro")) return "erro";
+  if (it.some(i => i.estado === "atencao")) return "atencao";
+  return "ok";
+}
+const tituloBloco = n => (estadoAtual && estadoAtual.blocos[n] && estadoAtual.blocos[n].dados && estadoAtual.blocos[n].dados.titulo) || n;
+
+// ---------- visão geral ----------
+function renderGeral(est) {
+  const hoje = diaBRT(new Date()), agora = new Date();
+  const doDia = agendaTodos(est).filter(a => diaBRT(a._d) === hoje);
+  // linha do tempo de hoje
+  let marcou = false, html = "";
+  for (const a of doDia) {
+    if (!marcou && a._d > agora) { html += `<li class="agora">AGORA ${horaBRT(agora)}</li>`; marcou = true; }
+    html += `<li data-bloco="${esc(a._bloco)}" class="${a._d <= agora ? "passou" : ""}" title="${esc(a.texto)}">
+      <span class="hora">${horaBRT(a._d)}</span><span class="rede ${esc(a.rede)}">${esc(SIGLA[a.rede] || "·")}</span>
+      <span class="txt"><small>${esc(a.conta)}</small>${esc(a.texto)}</span><span class="ponto ${esc(a.estado || "info")}"></span></li>`;
+  }
+  if (doDia.length && !marcou) html += `<li class="agora">AGORA ${horaBRT(agora)}</li>`;
+  $("#tempo").innerHTML = html || `<li class="agora">AGORA ${horaBRT(agora)}</li><p class="vazio">Nada marcado pra hoje.</p>`;
+  // só os alertas críticos
+  const alertas = est.alertas || [], crit = alertas.filter(a => a.estado === "erro"), aten = alertas.length - crit.length;
+  $("#criticos").innerHTML = (crit.length
+    ? `<ul class="criticos">${crit.slice(0, 3).map(a => {
+        const t = String(a.texto), i = t.indexOf(": ");
+        return `<li data-bloco="${esc(a.bloco)}"><small>${esc(tituloBloco(a.bloco))}</small><b>${esc(i > 0 ? t.slice(i + 2) : t)}</b></li>`;
+      }).join("")}</ul>${crit.length > 3 ? `<p class="vazio" style="margin-top:8px">e mais ${crit.length - 3} em Projetos</p>` : ""}`
+    : `<p class="vazio"><span class="ponto ok"></span> Nenhum alerta crítico.</p>`)
+    + (aten ? `<button class="mais-atencao" data-ir="projetos">${aten} pontos de atenção em Projetos ›</button>` : "");
+  // os 4 números dos anéis
+  const custos = est.blocos.custos, dest = custos && custos.ok && custos.dados.destaque;
+  const pct = dest ? parseFloat(String(dest.valor).replace(",", ".")) : NaN;
+  $("#m1").textContent = dest ? dest.valor : "··";
+  MED[0].alvo = isNaN(pct) ? 0 : Math.min(pct / 100, 1);
+  MED[0].cor = dest && dest.estado === "erro" ? "#ff5547" : dest && dest.estado === "atencao" ? "#fbbf24" : "#2dd4ff";
+  const posts = doDia.filter(a => a.rede !== "rotina"), feitos = posts.filter(a => a.estado === "ok").length;
+  $("#m2").textContent = posts.length;
+  MED[1].alvo = posts.length ? feitos / posts.length : 0;
+  $("#m3").textContent = crit.length;
+  MED[2].alvo = crit.length ? Math.min(crit.length / 5, 1) : 1;
+  MED[2].cor = crit.length ? "#ff5547" : "#10b981";
+  $("#m3cx").style.setProperty("--cor", crit.length ? "var(--erro)" : "var(--ok)");
+  renderUsoGeral();
+}
+function renderUsoGeral() {
+  const h = usoAtual.hoje_usd;
+  $("#m4").textContent = h === undefined ? "··" : usd(h);
+  MED[3].alvo = h ? Math.min(h / LIMITE_API_DIA, 1) : 0;
+}
+
+// ---------- agenda da semana ----------
+function renderAgenda(est) {
+  const todos = agendaTodos(est).filter(a => a.rede !== "rotina");
+  const base = new Date(), dias = [];
+  for (let i = 0; i < 7; i++) dias.push(diaBRT(new Date(base.getTime() + i * 864e5)));
+  let html = `<div class="cab"></div>` + dias.map((d, i) => {
+    const dt = new Date(d + "T12:00:00Z");
+    return `<div class="cab${i ? "" : " hoje"}">${i ? DIAS[dt.getUTCDay()] : "hoje"} ${d.slice(8, 10)}/${d.slice(5, 7)}</div>`;
+  }).join("");
+  for (const [rede, nome] of REDES) {
+    const daRede = todos.filter(a => a.rede === rede);
+    html += `<div class="rede-nome"><span class="rede ${rede}">${SIGLA[rede]}</span>${nome}</div>`;
+    dias.forEach((d, i) => {
+      const doDia = daRede.filter(a => diaBRT(a._d) === d);
+      const posts = doDia.slice(0, 4).map(a => `<div class="post" data-bloco="${esc(a._bloco)}" title="${esc(a.conta + " · " + a.texto)}">
+        <span class="ponto ${esc(a.estado || "info")}"></span><span><span class="h">${horaBRT(a._d)}</span>${esc(a.texto)}</span></div>`).join("");
+      const extra = doDia.length > 4 ? `<div class="extra">+${doDia.length - 4}</div>` : "";
+      const vazio = !daRede.length && i === 0 ? `<div class="sem-dado">sem dados de agenda</div>` : "";
+      html += `<div class="celula${i ? "" : " hoje"}">${posts}${extra}${vazio}</div>`;
+    });
+  }
+  $("#semana").innerHTML = html;
+  const vazios = REDES.filter(([r]) => !todos.some(a => a.rede === r)).map(r => r[1]);
+  $("#agendaResumo").textContent = `${todos.length} posts nos próximos 7 dias` + (vazios.length ? ` · sem agenda: ${vazios.join(", ")}` : "");
+}
+
+// ---------- projetos e gaveta ----------
+function renderProjetos(est) {
+  const nomes = [...ORDEM_PROJETOS.filter(n => est.blocos[n]), ...Object.keys(est.blocos).filter(n => !ORDEM_PROJETOS.includes(n))];
+  $("#projetos").innerHTML = nomes.map(n => {
+    const b = est.blocos[n], g = estadoGeral(b);
+    if (!b.ok) return `<article class="caixa bloco erro" data-bloco="${esc(n)}"><h3><span class="ponto erro"></span>${esc(n)}</h3>
+      <div class="numero erro">!</div><p class="frase">Sem dados agora: ${esc(b.erro)}</p></article>`;
+    const d = b.dados || {}, it = d.itens || [];
+    const nErro = it.filter(i => i.estado === "erro").length, nAten = it.filter(i => i.estado === "atencao").length;
+    const dest = d.destaque || { valor: String(nErro + nAten), rotulo: "pontos de atenção", estado: g };
+    const frase = d.frase || String(b.resumo || "").split(/(?<=[.!?])\s/)[0];
+    return `<article class="caixa bloco${g === "erro" ? " erro" : ""}" data-bloco="${esc(n)}" tabindex="0">
+      <h3><span class="ponto ${g}"></span>${esc(d.titulo || n)}<span class="hora">${esc((b.atualizado || "").slice(11, 16))}</span></h3>
+      <div class="numero ${esc(dest.estado || "ok")}">${esc(dest.valor)}</div>
+      <div class="rotulo">${esc(dest.rotulo)}</div>
+      <p class="frase">${esc(frase)}</p>
+      <div class="rodape">${nErro ? `<span><span class="ponto erro"></span> ${nErro} crítico${nErro > 1 ? "s" : ""}</span>` : ""}
+        ${nAten ? `<span><span class="ponto atencao"></span> ${nAten} atenção</span>` : ""}${!nErro && !nAten ? "<span>tudo certo</span>" : ""}</div>
+    </article>`;
+  }).join("");
+}
+function abrirGaveta(n) {
+  const b = estadoAtual && estadoAtual.blocos[n];
+  if (!b) return;
+  blocoGaveta = n;
+  const d = b.dados || {}, g = estadoGeral(b);
+  const itens = (d.itens || []).map(i => `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}</span></li>`).join("");
+  const lista = (d.lista || []).map(x => {
+    const txt = `${x.quando ? esc(x.quando) + " · " : ""}${esc(x.texto)}`;
+    const corpo = linkSeguro(x.link) ? `<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">${txt}</a>` : txt;
+    return `<li><span class="ponto ${esc(x.estado || "info")}"></span><span>${corpo}</span></li>`;
+  }).join("");
+  const links = (d.links || []).filter(l => linkSeguro(l.url))
+    .map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.rotulo)} ↗</a>`).join("");
+  $("#gavetaConteudo").innerHTML = `<h2><span class="ponto ${g}"></span>${esc(d.titulo || n)}</h2>
+    <div class="rotulo">atualizado ${esc((b.atualizado || "").slice(11, 16))}</div>
+    <p class="resumo">${esc(b.ok ? b.resumo : "Sem dados agora: " + b.erro)}</p>
+    ${itens ? `<div class="rotulo">ITENS</div><ul>${itens}</ul>` : ""}
+    ${lista ? `<div class="rotulo">EVENTOS</div><ul>${lista}</ul>` : ""}
+    ${links ? `<div class="links">${links}</div>` : ""}`;
+  $("#gaveta").classList.add("aberta"); $("#gaveta").setAttribute("aria-hidden", "false");
+  $("#fundoGaveta").classList.remove("oculto");
+}
+function fecharGaveta() {
+  blocoGaveta = null;
+  $("#gaveta").classList.remove("aberta"); $("#gaveta").setAttribute("aria-hidden", "true");
+  $("#fundoGaveta").classList.add("oculto");
+}
+$("#fecharGaveta").onclick = fecharGaveta;
+$("#fundoGaveta").onclick = fecharGaveta;
+document.addEventListener("keydown", e => { if (e.key === "Escape") { fecharGaveta(); } });
+document.addEventListener("click", e => {
+  const ir = e.target.closest("[data-ir]");
+  if (ir) return trocarAba(ir.dataset.ir);
+  const alvo = e.target.closest("[data-bloco]");
+  if (alvo && !alvo.closest("#gaveta")) abrirGaveta(alvo.dataset.bloco);
+});
+$("#projetos").addEventListener("keydown", e => { if (e.key === "Enter" && e.target.dataset.bloco) abrirGaveta(e.target.dataset.bloco); });
+
+// ---------- custos ----------
+function renderCustos(est) {
+  const b = est.blocos.custos;
+  if (!b || !b.ok) { $("#fatias").innerHTML = `<p class="vazio">Sem dados de custos agora${b ? ": " + esc(b.erro) : ""}.</p>`; $("#custosExtra").innerHTML = ""; return; }
+  const d = b.dados || {}, dest = d.destaque;
+  $("#custosResumo").textContent = d.frase || b.resumo || "";
+  const fatias = d.fatias || [];
+  $("#fatias").innerHTML = (dest ? `<div class="numero ${esc(dest.estado || "ok")}">${esc(dest.valor)}</div><div class="rotulo" style="margin-bottom:18px">${esc(dest.rotulo)}</div>` : "")
+    + (fatias.length ? fatias.map(f => {
+        const uso = f.fatia_usd ? f.gasto_usd / f.fatia_usd : 0;
+        return `<div class="barra"><div class="linha-b"><span class="ponto ${esc(f.estado || "info")}"></span><b>${esc(f.rotulo)}</b>
+          <span class="val">${usd(f.gasto_usd)} de ${usd(f.fatia_usd)} · ${Math.round(uso * 100)}% da fatia</span></div>
+          <div class="trilho"><i class="${esc(f.estado || "")}" style="width:${Math.min(uso * 100, 100).toFixed(1)}%"></i></div></div>`;
+      }).join("") : `<p class="vazio">O coletor de custos ainda não manda as fatias.</p>`);
+  const extra = (d.itens || []).filter(i => !String(i.id || "").startsWith("custos.fatia.") && i.id !== "custos.semana");
+  const v = usoAtual.voz || {};
+  const voz = v.teto ? `<li><span class="ponto ${v.hoje_creditos >= v.teto ? "erro" : "info"}"></span><span><b>Voz ElevenLabs</b> ${Math.round(v.hoje_creditos || 0)} de ${v.teto} créditos hoje${v.tem_chave ? "" : " (sem chave, voz reserva)"}</span></li>` : "";
+  const api = usoAtual.hoje_usd !== undefined ? `<li><span class="ponto info"></span><span><b>API do painel hoje</b> ${usd(usoAtual.hoje_usd)}</span></li>` : "";
+  $("#custosExtra").innerHTML = `<div class="rotulo" style="margin-bottom:10px">DETALHES</div><ul class="lista-simples">${api}${voz}
+    ${extra.map(i => `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}</span></li>`).join("")}
+    ${(d.lista || []).map(x => `<li><span class="ponto ${esc(x.estado || "info")}"></span><span>${x.quando && x.quando !== "semana" ? `<b>${esc(x.quando)}</b> ` : ""}${esc(x.texto)}</span></li>`).join("")}</ul>`;
+}
+
+// ---------- carga dos dados ----------
+function renderTudo(est) {
+  renderGeral(est); renderAgenda(est); renderProjetos(est); renderCustos(est);
+  if (blocoGaveta) abrirGaveta(blocoGaveta);
+}
+async function carregarEstado(forcar) {
+  try {
+    const r = await fetch("/api/estado" + (forcar ? "?forcar=1" : ""));
+    estadoAtual = await r.json();
+    renderTudo(estadoAtual);
+  } catch (e) {
+    $("#criticos").innerHTML = `<ul class="criticos"><li><small>servidor</small><b>Não consegui falar com o servidor do painel.</b></li></ul>`;
+  }
+}
+async function carregarUso() {
+  try {
+    usoAtual = await (await fetch("/api/uso")).json();
+    atualizarCusto(usoAtual.custo_usd);
+    vozEleven = !!(usoAtual.voz && usoAtual.voz.tem_chave && usoAtual.voz.tem_voz) && !vozFalhou;
+    atualizarVoz(); renderUsoGeral();
+    if (estadoAtual) renderCustos(estadoAtual);
+    return usoAtual;
+  } catch (e) { return {}; }
 }
 
 // ---------- Second Brain: grafo ----------
@@ -539,7 +1016,7 @@ function renderGrafo() {
   if (!animando) { animando = true; requestAnimationFrame(animar); }
 }
 function animar() {
-  if (!document.hidden && arestas.length) {
+  if (!document.hidden && abaAtual === "cerebro" && arestas.length) {
     for (const p of pulsos) {
       p.t += p.v;
       if (p.t >= 1) { p.t = 0; p.e = Math.floor(Math.random() * arestas.length); }
@@ -612,66 +1089,6 @@ $("#formNota").onsubmit = async e => {
   try { await gravarNotas(); fecharEditor(); piscar(id); } catch (err) { alert(err.message); }
 };
 
-// ---------- cards dos projetos ----------
-function estadoGeral(b) {
-  if (!b || !b.ok) return "erro";
-  const it = (b.dados && b.dados.itens) || [];
-  if (it.some(i => i.estado === "erro")) return "erro";
-  if (it.some(i => i.estado === "atencao")) return "atencao";
-  return "ok";
-}
-const linkSeguro = u => /^https?:\/\//i.test(String(u || ""));
-function renderCards(est) {
-  const html = ORDEM_CARDS.filter(n => est.blocos[n]).map(n => {
-    const b = est.blocos[n], g = estadoGeral(b);
-    if (!b.ok) return `<article class="caixa card erro" id="card-${n}"><h3><span class="ponto erro"></span>${esc(n)}</h3>
-      <p class="resumo">Sem dados agora: ${esc(b.erro)}</p></article>`;
-    const d = b.dados || {}, hora = (b.atualizado || "").slice(11, 16);
-    const itens = (d.itens || []).map(i => `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}</span></li>`).join("");
-    const lista = (d.lista || []).map((x, k) => {
-      const txt = `${x.quando ? esc(x.quando) + " · " : ""}${esc(x.texto)}`;
-      const corpo = linkSeguro(x.link) ? `<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">${txt}</a>` : txt;
-      return `<li${k >= 5 ? ' class="extra oculto"' : ""}><span class="ponto ${esc(x.estado || "info")}"></span><span>${corpo}</span></li>`;
-    }).join("");
-    const mais = (d.lista || []).length > 5 ? `<button class="mais">ver mais ${(d.lista.length - 5)}</button>` : "";
-    const links = (d.links || []).filter(l => linkSeguro(l.url))
-      .map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.rotulo)} ↗</a>`).join("");
-    return `<article class="caixa card" id="card-${n}">
-      <h3><span class="ponto ${g}"></span>${esc(d.titulo || n)}<span class="hora">${esc(hora)}</span></h3>
-      <p class="resumo">${esc(b.resumo)}</p>
-      ${itens ? `<ul>${itens}</ul>` : ""}
-      ${lista ? `<ul class="lista">${lista}</ul>${mais}` : ""}
-      ${links ? `<div class="links">${links}</div>` : ""}
-    </article>`;
-  }).join("");
-  $("#cards").innerHTML = html;
-  const al = est.alertas || [];
-  $("#alertas").innerHTML = al.length
-    ? `<h3>${al.length} PONTOS DE ATENÇÃO</h3><ul>${al.slice(0, 8).map(a =>
-        `<li data-bloco="${esc(a.bloco)}"><span class="ponto ${esc(a.estado)}"></span> ${esc(a.texto)}</li>`).join("")}</ul>`
-    : `<h3><span class="ponto ok"></span> TUDO EM ORDEM</h3>`;
-}
-$("#cards").addEventListener("click", e => {
-  const b = e.target.closest(".mais");
-  if (!b) return;
-  const card = b.closest(".card");
-  card.querySelectorAll(".extra").forEach(li => li.classList.toggle("oculto"));
-  b.textContent = b.textContent.startsWith("ver mais") ? "ver menos" : "ver mais";
-});
-$("#alertas").addEventListener("click", e => {
-  const li = e.target.closest("li[data-bloco]");
-  if (li) document.getElementById("card-" + li.dataset.bloco)?.scrollIntoView({ behavior: "smooth", block: "center" });
-});
-async function carregarEstado(forcar) {
-  try {
-    const r = await fetch("/api/estado" + (forcar ? "?forcar=1" : ""));
-    estadoAtual = await r.json();
-    renderCards(estadoAtual);
-  } catch (e) {
-    $("#cards").innerHTML = `<article class="caixa card erro"><h3><span class="ponto erro"></span>SERVIDOR</h3><p class="resumo">Não consegui falar com o servidor do painel.</p></article>`;
-  }
-}
-
 // ---------- controles ----------
 $("#formTexto").onsubmit = e => {
   e.preventDefault();
@@ -684,25 +1101,27 @@ $("#formTexto").onsubmit = e => {
 document.querySelectorAll("[data-cmd]").forEach(b => b.onclick = () => { if (busy) interromper(); comando(b.dataset.cmd); });
 document.querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { modo = b.dataset.modo; guardar("jarvis_modo", modo); atualizarModo(); });
 $("#selVoz").onchange = e => { voz = vozes.find(v => v.name === e.target.value) || voz; guardar("jarvis_voz", voz ? voz.name : ""); };
+$("#btnVoz").onclick = () => { preferirReserva = !preferirReserva; guardar("jarvis_reserva", preferirReserva ? "1" : "0"); atualizarVoz(); };
 $("#btnParar").onclick = interromper;
-$("#btnAtualizar").onclick = () => carregarEstado(true);
+$("#btnAtualizar").onclick = () => { carregarEstado(true); carregarUso(); };
 $("#btnMic").onclick = () => {
   micLigado = !micLigado; atualizarMic();
   if (micLigado) { if (!rec) rec = criarRec(); iniciarEscuta(); } else pararEscuta();
   setEstado("ocioso");
 };
-$("#orbe").onclick = () => {
+cv.onclick = () => {
   if (busy) return interromper();
   if (!micLigado) { micLigado = true; atualizarMic(); if (!rec) rec = criarRec(); }
   armar(); iniciarEscuta();
 };
 
 // ---------- inicialização ----------
+trocarAba(lerGuardado("jarvis_aba") || "geral");
 carregarEstado(false);
 carregarNotas();
-fetch("/api/uso").then(r => r.json()).then(d => { atualizarCusto(d.custo_usd); if (!d.tem_chave) avisoChave(); }).catch(() => {});
-setInterval(() => { if (!document.hidden) carregarEstado(false); }, 60000);
-atualizarModo(); atualizarMic();
+carregarUso().then(d => { if (d && d.tem_chave === false) avisoChave(); });
+setInterval(() => { if (!document.hidden) { carregarEstado(false); carregarUso(); } }, 60000);
+atualizarModo(); atualizarMic(); atualizarVoz();
 
 setTimeout(() => {
   $("#boot").classList.add("saindo");
@@ -714,14 +1133,15 @@ $("#btnAtivar").onclick = () => {
   $("#ativar").classList.add("saindo");
   setTimeout(() => $("#ativar").classList.add("oculto"), 600);
   $("#app").classList.remove("oculto");
+  prepararAudio();
+  ajustarCanvas();
   renderGrafo();
   micLigado = true; atualizarMic();
   rec = criarRec();
-  const n = estadoAtual ? (estadoAtual.alertas || []).length : 0;
-  const saud = `Sistemas online. Estou ouvindo, ${CONFIG.address}.` + (n ? ` Há ${n} pontos de atenção no painel.` : "");
+  const crit = estadoAtual ? (estadoAtual.alertas || []).filter(a => a.estado === "erro").length : 0;
+  const saud = `Sistemas online. Estou ouvindo, ${CONFIG.address}.` + (crit ? ` Há ${crit} alertas críticos no painel.` : "");
   setJarvis(saud);
   falar(saud);
-  if (!("speechSynthesis" in window)) finalizarTurno();
 };
 </script>
 </body>

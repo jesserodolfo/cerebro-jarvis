@@ -1,6 +1,7 @@
 """Coletor Jesus é Pop (YouTube + Facebook, PT e ES). Lê o jarvis_yt.db só pra leitura."""
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import datetime
+import re
 
 from _base import FUSO, MKT, agora, erro, ok, rodar, sqlite_ro
 
@@ -17,6 +18,16 @@ def num(n):
     return f"{n:,}".replace(",", ".")
 
 
+def limpa(txt):
+    """Tira travessão de texto que vem de fora (título de vídeo)."""
+    return re.sub(r"\s*[\u2014\u2013]\s*", ", ", txt or "")
+
+
+def corta(txt, n):
+    txt = " ".join(limpa(txt).split())
+    return txt if len(txt) <= n else txt[: n - 1].rstrip() + "…"
+
+
 def coletar():
     if not DB.exists():
         return erro(f"banco não encontrado: {DB}")
@@ -27,41 +38,52 @@ def coletar():
     ini = agora_utc.isoformat()
     fim7 = (agora_utc + datetime.timedelta(days=7)).isoformat()
     agendados7 = {}
+    fb_sem_leitura = []
 
     for conta in ("pt", "es"):
         nome = NOMES[conta]
         a = c.execute("SELECT * FROM canal_dia WHERE conta=? ORDER BY data DESC LIMIT 1", (conta,)).fetchone()
         if a:
-            itens.append({"rotulo": f"{nome} · inscritos", "valor": num(a["inscritos"] or 0), "estado": "info"})
-            itens.append({"rotulo": f"{nome} · views 7 dias", "valor": num(a["views7"] or 0), "estado": "info"})
+            itens.append({"id": f"jesusepop.{conta}.inscritos", "rotulo": f"{nome} · inscritos",
+                          "valor": num(a["inscritos"] or 0), "estado": "info"})
+            itens.append({"id": f"jesusepop.{conta}.views7", "rotulo": f"{nome} · views 7 dias",
+                          "valor": num(a["views7"] or 0), "estado": "info"})
         else:
-            itens.append({"rotulo": f"{nome} · YouTube", "valor": "sem coleta", "estado": "atencao"})
+            itens.append({"id": f"jesusepop.{conta}.youtube", "rotulo": f"{nome} · YouTube",
+                          "valor": "sem coleta", "estado": "atencao"})
         fb = c.execute("SELECT seguidores s, data FROM fb_pagina WHERE conta=? ORDER BY data DESC LIMIT 1", (conta,)).fetchone()
         if fb is None or not fb["s"]:
-            itens.append({"rotulo": f"{nome} · seguidores FB", "valor": "sem leitura", "estado": "atencao"})
+            itens.append({"id": f"jesusepop.{conta}.fb", "rotulo": f"{nome} · seguidores FB",
+                          "valor": "sem leitura", "estado": "atencao"})
+            fb_sem_leitura.append(conta.upper())
         else:
-            itens.append({"rotulo": f"{nome} · seguidores FB", "valor": num(fb["s"]), "estado": "info"})
+            itens.append({"id": f"jesusepop.{conta}.fb", "rotulo": f"{nome} · seguidores FB",
+                          "valor": num(fb["s"]), "estado": "info"})
         n7 = c.execute("SELECT count(*) n FROM agenda WHERE conta=? AND status='scheduled' AND quando_utc BETWEEN ? AND ?",
                        (conta, ini, fim7)).fetchone()["n"]
         agendados7[conta] = n7
-        itens.append({"rotulo": f"{nome} · agendados 7 dias", "valor": str(n7), "estado": "ok" if n7 else "atencao"})
+        itens.append({"id": f"jesusepop.{conta}.agendados", "rotulo": f"{nome} · agendados 7 dias",
+                      "valor": str(n7), "estado": "ok" if n7 else "atencao"})
 
     falhas = c.execute("SELECT * FROM agenda WHERE status='failed' ORDER BY quando_utc DESC").fetchall()
-    itens.append({"rotulo": "Falhas na agenda", "valor": str(len(falhas)), "estado": "erro" if falhas else "ok"})
+    itens.append({"id": "jesusepop.falhas", "rotulo": "Falhas na agenda", "valor": str(len(falhas)),
+                  "estado": "erro" if falhas else "ok"})
 
     ult = c.execute("SELECT max(data) d FROM coleta").fetchone()["d"]
+    ruins = []
     if ult:
         col = c.execute("SELECT conta, ok, erro FROM coleta WHERE data=?", (ult,)).fetchall()
         ruins = [x["conta"] for x in col if not x["ok"]]
-        itens.append({"rotulo": "Última coleta", "valor": f"{ult[8:10]}/{ult[5:7]}" + (f" · erro em {', '.join(ruins)}" if ruins else " · ok"),
+        itens.append({"id": "jesusepop.coleta", "rotulo": "Última coleta", "valor": f"{ult[8:10]}/{ult[5:7]}" + (f" · erro em {', '.join(ruins)}" if ruins else " · ok"),
                       "estado": "erro" if ruins else ("ok" if ult == str(agora().date()) else "atencao")})
     else:
-        itens.append({"rotulo": "Última coleta", "valor": "nunca", "estado": "erro"})
+        itens.append({"id": "jesusepop.coleta", "rotulo": "Última coleta", "valor": "nunca", "estado": "erro"})
 
     prod = c.execute("SELECT * FROM producao ORDER BY atualizado DESC LIMIT 1").fetchone()
     if prod:
         est = {"ok": "ok", "erro": "erro", "rodando": "atencao"}.get(prod["estado"], "info")
-        itens.append({"rotulo": "Produção", "valor": f"{prod['historia']} · {prod['etapa']} ({prod['estado']})", "estado": est})
+        itens.append({"id": "jesusepop.producao", "rotulo": "Produção",
+                      "valor": f"{prod['historia']} · {prod['etapa']} ({prod['estado']})", "estado": est})
 
     for f in falhas[:5]:
         lista.append({"quando": f"{brt(f['quando_utc']):%d/%m %H:%M}", "estado": "erro",
@@ -71,6 +93,25 @@ def coletar():
     for r in prox:
         lista.append({"quando": f"{brt(r['quando_utc']):%d/%m %H:%M}", "estado": "info",
                       "texto": f"{r['conta'].upper()} · {r['tipo']} · {r['titulo'][:70]}"})
+
+    # agenda do painel em abas: hoje 00:00 até hoje+6 23:59 BRT (YouTube; a tabela não guarda Facebook)
+    hoje = agora().date()
+    ini_ag = datetime.datetime.combine(hoje, datetime.time(0), FUSO)
+    fim_ag = datetime.datetime.combine(hoje + datetime.timedelta(days=6), datetime.time(23, 59, 59), FUSO)
+    margem = lambda d: d.astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    linhas = c.execute("SELECT * FROM agenda WHERE status IN ('scheduled','published','failed') "
+                       "AND quando_utc>=? AND quando_utc<=? ORDER BY quando_utc",
+                       (margem(ini_ag - datetime.timedelta(days=1)), margem(fim_ag + datetime.timedelta(days=1)))).fetchall()
+    agenda = []
+    for r in linhas:
+        q = brt(r["quando_utc"])
+        if not (ini_ag <= q <= fim_ag):
+            continue
+        agenda.append({"quando": q.isoformat(timespec="seconds"), "rede": "youtube",
+                       "conta": f"{NOMES.get(r['conta'], r['conta'])} {r['conta'].upper()}",
+                       "texto": corta(f"{r['tipo']} · {r['titulo']}", 70),
+                       "estado": {"scheduled": "info", "published": "ok", "failed": "erro"}[r["status"]]})
+    agenda = sorted(agenda, key=lambda e: e["quando"])[:60]
     c.close()
 
     resumo = (f"Jesus é Pop tem {agendados7['pt']} posts agendados nos próximos 7 dias no canal em português "
@@ -78,7 +119,24 @@ def coletar():
     resumo += f" Atenção: {len(falhas)} post com falha na agenda." if len(falhas) == 1 else (
         f" Atenção: {len(falhas)} posts com falha na agenda." if falhas else " Nenhuma falha na agenda.")
 
-    dados = {"titulo": "Jesus é Pop", "itens": itens, "lista": lista,
+    total7 = sum(agendados7.values())
+    sem_agenda = [k.upper() for k, v in agendados7.items() if not v]
+    destaque = {"valor": str(total7), "rotulo": "agendados 7 dias",
+                "estado": "atencao" if (falhas or ruins or sem_agenda) else "ok"}
+    pontos = []
+    if falhas:
+        contas_falha = "/".join(sorted({f["conta"].upper() for f in falhas}))
+        pontos.append(f"{len(falhas)} falha{'s' if len(falhas) != 1 else ''} na agenda ({contas_falha}).")
+    if sem_agenda:
+        pontos.append(f"{'/'.join(sem_agenda)} sem post agendado.")
+    if ruins:
+        pontos.append(f"Coleta com erro em {'/'.join(x.upper() for x in ruins)}.")
+    if fb_sem_leitura:
+        pontos.append("Facebook sem leitura.")
+    frase = corta(" ".join(pontos) if pontos else "Agenda cheia nos dois canais, sem falhas.", 90)
+
+    dados = {"titulo": "Jesus é Pop", "destaque": destaque, "frase": frase, "agenda": agenda,
+             "itens": itens, "lista": lista,
              "links": [{"rotulo": "Painel completo", "url": f"{PAINEL}/"},
                        {"rotulo": "Calendário", "url": f"{PAINEL}/calendario"}]}
     return ok(dados, resumo)

@@ -204,13 +204,14 @@ def coletar():
     ritmo_pct = uso_pct * fator
     calibrado = cfg["semana"].get("calibrado_em", "")
 
+    estado_semana = "erro" if uso_pct >= 100 else "atencao" if uso_pct > 70 else "ok"
     itens = [
-        {"rotulo": "Semana do plano", "valor": f"{pct(uso_pct)} estimado ({usd(total)} de ~{usd(cap)})",
-         "estado": "erro" if uso_pct >= 100 else "atencao" if uso_pct > 70 else "ok"},
-        {"rotulo": "Previsão até domingo", "valor": f"{pct(ritmo_pct)} do limite no ritmo atual",
+        {"id": "custos.semana", "rotulo": "Semana do plano",
+         "valor": f"{pct(uso_pct)} estimado ({usd(total)} de ~{usd(cap)})", "estado": estado_semana},
+        {"id": "custos.previsao", "rotulo": "Previsão até domingo", "valor": f"{pct(ritmo_pct)} do limite no ritmo atual",
          "estado": "ok" if ritmo_pct <= 85 else "atencao" if ritmo_pct <= 100 else "erro"},
     ]
-    acima = []
+    acima, fatias_out = [], []
     for fa in fatias:
         gasto = por_fatia.get(fa["id"], 0.0)
         g_pct = gasto / cap * 100
@@ -219,11 +220,15 @@ def coletar():
         estado = "ok" if r_pct <= alvo else "atencao" if r_pct <= 1.2 * alvo else "erro"
         if estado == "erro":
             acima.append(fa["rotulo"])
-        itens.append({"rotulo": fa["rotulo"], "valor": f"{usd(gasto)} · {pct(g_pct)} (fatia {pct(alvo)}) · ritmo {pct(r_pct)}",
+        itens.append({"id": f"custos.fatia.{fa['id']}", "rotulo": fa["rotulo"],
+                      "valor": f"{usd(gasto)} · {pct(g_pct)} (fatia {pct(alvo)}) · ritmo {pct(r_pct)}",
                       "estado": estado})
+        fatias_out.append({"id": f"custos.fatia.{fa['id']}", "rotulo": fa["rotulo"],
+                           "gasto_usd": round(gasto, 2), "fatia_usd": round(cap * alvo / 100, 2),
+                           "pct_usado": round(g_pct, 1), "pct_fatia": round(alvo, 1), "estado": estado})
 
     fable = sum(v for m, v in por_modelo.items() if "fable" in m)
-    itens.append({"rotulo": "Fable 5.1", "valor": f"{usd(fable)} na semana ({pct(fable / total * 100 if total else 0)} do gasto)",
+    itens.append({"id": "custos.fable", "rotulo": "Fable 5.1", "valor": f"{usd(fable)} na semana ({pct(fable / total * 100 if total else 0)} do gasto)",
                   "estado": "info"})
 
     nuvem = cfg.get("nuvem", {})
@@ -238,13 +243,13 @@ def coletar():
             estado = "atencao" if faltam < 5 else "info"
             if faltam < 5:
                 aviso_nuvem = f" O crédito da nuvem vence em {int(faltam) or 1} dia{'s' if int(faltam) > 1 else ''}."
-        itens.append({"rotulo": "Nuvem", "valor": valor, "estado": estado})
+        itens.append({"id": "custos.nuvem", "rotulo": "Nuvem", "valor": valor, "estado": estado})
 
     api = uso_api_semana(ini.astimezone(datetime.timezone.utc))
-    itens.append({"rotulo": "API do painel", "valor": f"{usd(api)} na semana", "estado": "info"})
-    itens.append({"rotulo": "Estimativa", "valor": f"calibrada em {calibrado}", "estado": "info"})
+    itens.append({"id": "custos.api", "rotulo": "API do painel", "valor": f"{usd(api)} na semana", "estado": "info"})
+    itens.append({"id": "custos.estimativa", "rotulo": "Estimativa", "valor": f"calibrada em {calibrado}", "estado": "info"})
     if sem_preco:
-        itens.append({"rotulo": "Sem preço", "valor": f"{sem_preco} respostas de modelo fora da tabela", "estado": "info"})
+        itens.append({"id": "custos.sem-preco", "rotulo": "Sem preço", "valor": f"{sem_preco} respostas de modelo fora da tabela", "estado": "info"})
 
     lista = []
     for m, v in sorted(por_modelo.items(), key=lambda x: -x[1])[:5]:
@@ -263,7 +268,20 @@ def coletar():
         resumo += " Todos os projetos estão dentro da fatia."
     resumo += aviso_nuvem
 
-    dados = {"titulo": "Custos", "itens": itens, "lista": lista[:15], "links": [],
+    # número grande e frase do painel em abas (itens e lista seguem iguais)
+    destaque = {"valor": pct(uso_pct), "rotulo": "da semana do plano", "estado": estado_semana}
+    frase = f"Ritmo de {pct(ritmo_pct)} até domingo; "
+    if len(acima) == 1:
+        frase += f"{acima[0]} acima da fatia."
+    elif acima:
+        frase += f"{', '.join(acima[:-1])} e {acima[-1]} acima da fatia."
+    else:
+        frase += "todos dentro da fatia."
+    if len(frase) > 90:
+        frase = frase[:89].rstrip() + "…"
+
+    dados = {"titulo": "Custos", "destaque": destaque, "frase": frase, "fatias": fatias_out,
+             "itens": itens, "lista": lista[:15], "links": [],
              "semana_inicio": ini.strftime("%d/%m %H:%M"), "total_usd": round(total, 2)}
     return ok(dados, resumo)
 
