@@ -15,6 +15,7 @@
   "voz": {
     "provedor": "kokoro",
     "voz": "pm_alex",
+    "opcoes": ["pm_alex", "pm_santa"],
     "modelo": "int8",
     "porta": 8791,
     "prazo_ms": 3000,

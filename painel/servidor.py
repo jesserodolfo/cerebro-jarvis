@@ -495,16 +495,18 @@ class Handler(BaseHTTPRequestHandler):
                     pass  # navegador cancelou (botão parar)
             return conversar(corpo, enviar)
         if self.path == "/api/voz":
-            return self._voz(corpo.get("texto") if isinstance(corpo.get("texto"), str) else "")
+            return self._voz(corpo.get("texto") if isinstance(corpo.get("texto"), str) else "",
+                             corpo.get("voz") if isinstance(corpo.get("voz"), str) else None)
         self._json({"erro": "não encontrado"}, 404)
 
-    def _voz(self, texto):
-        """Uma frase em áudio. Qualquer falha antes do primeiro pedaço volta como JSON e o navegador usa a voz reserva."""
+    def _voz(self, texto, voz=None):
+        """Uma frase em áudio. Qualquer falha antes do primeiro pedaço volta como JSON e o navegador usa a voz reserva.
+        voz: a do seletor do painel; o provedor só aceita as de config.json/voz.opcoes."""
         try:
             modulo = provedor_voz()
             if modulo is None:
                 return self._json({"erro": "", "codigo": "desligada"}, 503)
-            fluxo = modulo.abrir(texto)
+            fluxo = modulo.abrir(texto, voz) if voz else modulo.abrir(texto)
         except Exception as e:
             codigo = getattr(e, "codigo", "api")
             msg = getattr(e, "msg", "Senhor, a voz principal falhou. Sigo com a voz reserva.")

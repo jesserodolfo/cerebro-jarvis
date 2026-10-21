@@ -78,10 +78,12 @@ def _cfg():
     if teste.isdigit() and int(teste) > 0:
         prazo_ms = int(teste)
     voz = bruto.get("voz")
+    voz = voz if isinstance(voz, str) and voz else "pm_alex"
+    opcoes = [v for v in bruto.get("opcoes") or [] if isinstance(v, str) and v]
     return {"porta": num("porta", 8791, int), "prazo_ms": prazo_ms,
             "velocidade": num("velocidade", 1.0, float),
             "max_caracteres": num("max_caracteres_pedido", 600, int),
-            "voz": voz if isinstance(voz, str) and voz else "pm_alex",
+            "voz": voz, "opcoes": opcoes or [voz],
             "modelo": bruto.get("modelo") if isinstance(bruto.get("modelo"), str) else "int8"}
 
 
@@ -144,10 +146,12 @@ class _Fluxo:
         _registrar(self._caracteres, self._ms, ok, codigo)
 
 
-def abrir(texto):
-    """Valida, pede ao serviço dentro do prazo e só devolve o iterador depois do status 200."""
+def abrir(texto, voz=None):
+    """Valida, pede ao serviço dentro do prazo e só devolve o iterador depois do status 200.
+    voz: a escolhida no seletor do painel; fora de config.json/voz.opcoes vale a padrão."""
     inicio = time.monotonic()
     cfg = _cfg()
+    voz = voz if voz in cfg["opcoes"] else cfg["voz"]
     texto = texto.strip() if isinstance(texto, str) else ""
     if not texto:
         _registrar(0, None, False, "texto_invalido")
@@ -157,7 +161,7 @@ def abrir(texto):
         raise _erro("texto_invalido", "Senhor, a frase é longa demais para a voz local. Sigo com a voz reserva.")
 
     prazo_s = cfg["prazo_ms"] / 1000
-    corpo = json.dumps({"texto": texto, "voz": cfg["voz"], "velocidade": cfg["velocidade"]},
+    corpo = json.dumps({"texto": texto, "voz": voz, "velocidade": cfg["velocidade"]},
                        ensure_ascii=False).encode()
     conn = http.client.HTTPConnection(HOST, cfg["porta"], timeout=prazo_s)
 
@@ -223,8 +227,8 @@ def _hoje_frases():
 def status():
     """GET /saude com prazo de 0,5 s. Nunca levanta exceção."""
     cfg = _cfg()
-    saida = {"provedor": "kokoro", "disponivel": False, "voz": cfg["voz"], "modelo": cfg["modelo"],
-             "motivo": "", "hoje_frases": 0}
+    saida = {"provedor": "kokoro", "disponivel": False, "voz": cfg["voz"], "opcoes": cfg["opcoes"],
+             "modelo": cfg["modelo"], "motivo": "", "hoje_frases": 0}
     try:
         saida["hoje_frases"] = _hoje_frases()
     except Exception:
