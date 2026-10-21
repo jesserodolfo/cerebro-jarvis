@@ -8,13 +8,15 @@
     <string>/Users/dmelo/Documents/03-Marketing/cerebro-jarvis/painel/.venv/bin/python</string>
     <string>/Users/dmelo/Documents/03-Marketing/cerebro-jarvis/painel/servidor.py</string>
   </array>
-  <key>WorkingDirectory</key><string>/Users/dmelo/Documents/03-Marketing/cerebro-jarvis/painel</string>
+  <!-- 21/10: nada de WorkingDirectory nem log dentro de ~/Documents. Depois de reiniciar o Mac, o macOS
+       barra o launchd nessa pasta e o serviço morre com 78 (EX_CONFIG) antes do Python começar.
+       O servidor só usa caminho absoluto; quem abre ~/Documents é o próprio Python, que tem permissão. -->
   <key>EnvironmentVariables</key>
   <dict><key>PYTHONUNBUFFERED</key><string>1</string></dict>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>ThrottleInterval</key><integer>10</integer>
-  <key>StandardOutPath</key><string>/Users/dmelo/Documents/03-Marketing/cerebro-jarvis/painel/logs/servidor.log</string>
-  <key>StandardErrorPath</key><string>/Users/dmelo/Documents/03-Marketing/cerebro-jarvis/painel/logs/servidor.log</string>
+  <key>StandardOutPath</key><string>/Users/dmelo/Library/Logs/jarvis/servidor.log</string>
+  <key>StandardErrorPath</key><string>/Users/dmelo/Library/Logs/jarvis/servidor.log</string>
 </dict>
 </plist>
