@@ -317,6 +317,18 @@ def provedor_voz():
     return importlib.import_module("voz_" + nome)
 
 
+def aquecer_voz():
+    """Acorda a voz em segundo plano (o macOS manda o modelo parado pro disco). Nunca atrasa quem chamou."""
+    def rodar():
+        try:
+            modulo = provedor_voz()
+            if modulo is not None and hasattr(modulo, "aquecer"):
+                modulo.aquecer()
+        except Exception:
+            pass
+    threading.Thread(target=rodar, daemon=True).start()
+
+
 def situacao_voz():
     nome = CONFIG.get("voz", {}).get("provedor") or "nenhum"
     try:
@@ -347,6 +359,7 @@ def limpar_historico(msgs):
 
 def conversar(corpo, enviar):
     """Chama a API em streaming e manda eventos pro navegador por enviar(dict)."""
+    aquecer_voz()  # a API leva 1 a 3 s: tempo da voz voltar pra memória
     chave = chave_api()
     if not chave:
         return enviar({"t": "erro", "codigo": "sem_chave",
@@ -455,6 +468,7 @@ class Handler(BaseHTTPRequestHandler):
         if rota == "/api/notas":
             return self._json(ler_notas())
         if rota == "/api/uso":
+            aquecer_voz()  # o painel aberto chama a cada 60 s
             return self._json({**uso_sessao, "tem_chave": bool(chave_api()), "hoje_usd": gasto_hoje(),
                                "voz": situacao_voz()})
         if rota == "/favicon.ico":
@@ -494,6 +508,9 @@ class Handler(BaseHTTPRequestHandler):
                 except (BrokenPipeError, ConnectionResetError):
                     pass  # navegador cancelou (botão parar)
             return conversar(corpo, enviar)
+        if self.path == "/api/voz/aquecer":
+            aquecer_voz()
+            return self._json({"ok": True}, 202)
         if self.path == "/api/voz":
             return self._voz(corpo.get("texto") if isinstance(corpo.get("texto"), str) else "",
                              corpo.get("voz") if isinstance(corpo.get("voz"), str) else None)

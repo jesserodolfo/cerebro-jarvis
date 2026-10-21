@@ -9,6 +9,8 @@ O que é
 Rotas
     GET  /saude  -> JSON {"ok", "modelo", "vozes_pt", "carga_ms", "aquecimento_ms", "rss_mb", "pedidos"}
     POST /falar  -> corpo JSON {"texto": str, "voz": str opcional, "velocidade": float opcional}
+    POST /aquecer -> 202 {"aquecendo", "ocioso_s"}: se parado há mais de 10 s, sintetiza e joga fora
+                     uma frase em segundo plano, pra trazer o modelo de volta à RAM
                     resposta audio/wav (PCM 16 bits, mono, taxa do Kokoro, 24000) com o header
                     X-Sintese-Ms. Erros em JSON {"erro", "codigo"}:
                     400 texto_invalido, 400 voz_invalida, 500 sintese, 503 ocupado.
@@ -99,7 +101,10 @@ _trava_log = threading.Lock()
 _trava_sintese = threading.Lock()
 _kokoro = None  # carregado uma única vez, em carregar()
 _estado = {"modelo": CFG["modelo"], "vozes_pt": [], "carga_ms": None, "aquecimento_ms": None,
-           "pedidos": 0}
+           "pedidos": 0, "ultima_sintese": 0.0}
+# 21/10: com o Mac em swap, o macOS manda o modelo parado pro disco em segundos e a 1ª frase levava
+# de 6 a 11 s. POST /aquecer (painel aberto, a cada 60 s, começo de cada pergunta) traz de volta antes.
+AQUECER_APOS_S = 10
 _cache_rss = {"t": 0.0, "mb": None}
 
 
@@ -167,7 +172,24 @@ def carregar():
     t0 = time.perf_counter()
     _kokoro.create(FRASE_AQUECIMENTO, voice=CFG["voz"], speed=CFG["velocidade"], lang="pt-br")
     _estado["aquecimento_ms"] = round((time.perf_counter() - t0) * 1000)
+    _estado["ultima_sintese"] = time.monotonic()
     registrar(f"aquecimento aquecimento_ms={_estado['aquecimento_ms']} rss_mb={rss_mb()}")
+
+
+def aquecer_em_segundo_plano():
+    """Sintetiza a frase de aquecimento e joga fora, só pra trazer o modelo de volta à RAM.
+    Não espera a trava: se outra frase está em síntese, o modelo já está quente."""
+    if not _trava_sintese.acquire(blocking=False):
+        return
+    try:
+        t0 = time.perf_counter()
+        _kokoro.create(FRASE_AQUECIMENTO, voice=CFG["voz"], speed=CFG["velocidade"], lang="pt-br")
+        _estado["ultima_sintese"] = time.monotonic()
+        registrar(f"aquecer ms={round((time.perf_counter() - t0) * 1000)}")
+    except Exception as e:
+        registrar(f"aquecer erro tipo={type(e).__name__}")
+    finally:
+        _trava_sintese.release()
 
 
 def sintetizar(texto, voz, velocidade):
@@ -198,8 +220,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(corpo)))
         self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(corpo)
+        try:
+            self.end_headers()
+            self.wfile.write(corpo)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # quem pediu desistiu (prazo do painel): sem rastro de exceção no log
 
     def _erro(self, status, codigo, msg):
         self._json({"erro": msg, "codigo": codigo}, status)
@@ -225,7 +250,14 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"erro": "proibido", "codigo": "proibido"}, 403)
         if not (self.headers.get("Content-Type") or "").startswith("application/json"):
             return self._json({"erro": "proibido", "codigo": "proibido"}, 403)  # força preflight, nunca respondido
-        if self.path.partition("?")[0] != "/falar":
+        rota = self.path.partition("?")[0]
+        if rota == "/aquecer":
+            ocioso = time.monotonic() - _estado["ultima_sintese"]
+            vai = _kokoro is not None and ocioso > AQUECER_APOS_S and not _trava_sintese.locked()
+            if vai:
+                threading.Thread(target=aquecer_em_segundo_plano, daemon=True).start()
+            return self._json({"aquecendo": vai, "ocioso_s": round(ocioso)}, 202)
+        if rota != "/falar":
             return self._erro(404, "nao_encontrado", "rota inexistente")
 
         maximo = CFG["max_caracteres_pedido"]
@@ -266,6 +298,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             _estado["pedidos"] += 1
             wav, ms = sintetizar(texto, voz, velocidade)
+            _estado["ultima_sintese"] = time.monotonic()
         except Exception as e:
             registrar(f"pedido chars={len(texto)} ms=- voz={voz} erro=sintese tipo={type(e).__name__}")
             return self._erro(500, "sintese", "a síntese falhou")

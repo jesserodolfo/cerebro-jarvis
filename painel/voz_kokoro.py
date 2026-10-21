@@ -224,6 +224,21 @@ def _hoje_frases():
     return n
 
 
+def aquecer():
+    """Pede ao serviço pra trazer o modelo de volta à memória. Não espera a síntese; nunca levanta exceção."""
+    conn = http.client.HTTPConnection(HOST, _cfg()["porta"], timeout=PRAZO_STATUS_S)
+    try:
+        conn.request("POST", "/aquecer", body=b"{}", headers={"Content-Type": "application/json"})
+        return json.loads(conn.getresponse().read(1024) or b"{}")
+    except Exception:
+        return None
+    finally:
+        try:
+            conn.close()
+        except OSError:
+            pass
+
+
 def status():
     """GET /saude com prazo de 0,5 s. Nunca levanta exceção."""
     cfg = _cfg()

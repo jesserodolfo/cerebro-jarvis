@@ -434,6 +434,10 @@ function vozEscolhida() {
   const opcoes = (usoAtual.voz && usoAtual.voz.opcoes) || [], salva = lerGuardado("jarvis_voz_jarvis");
   return opcoes.includes(salva) ? salva : undefined;
 }
+function aquecerVoz() {
+  // acorda o Kokoro enquanto o Jarvis pensa (o Mac manda o modelo parado pro disco)
+  if (usarPrincipal()) fetch("/api/voz/aquecer", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }).catch(() => {});
+}
 function atualizarSeletorVoz() {
   const s = $("#selKokoro"), v = usoAtual.voz || {}, opcoes = v.opcoes || [];
   s.classList.toggle("oculto", !vozPrincipal || opcoes.length < 2);
@@ -646,6 +650,7 @@ async function comando(txt) {
   if (!txt) return;
   armado = false; clearTimeout(tArmado);
   mostrarVoce(txt);
+  aquecerVoz();
   const n = norm(txt);
   if (/^(para|pare|silencio|chega|cancela)\b/.test(n)) return interromper();
   if (/^(abre|abrir|abra|mostra|mostrar|mostre|vai pra|vai para|ir para|volta pra|volta para)\b/.test(n)) {
@@ -1132,6 +1137,7 @@ document.querySelectorAll("[data-cmd]").forEach(b => b.onclick = () => { if (bus
 document.querySelectorAll("[data-modo]").forEach(b => b.onclick = () => { modo = b.dataset.modo; guardar("jarvis_modo", modo); atualizarModo(); });
 $("#selVoz").onchange = e => { voz = vozes.find(v => v.name === e.target.value) || voz; guardar("jarvis_voz", voz ? voz.name : ""); };
 $("#btnVoz").onclick = () => { preferirReserva = !preferirReserva; guardar("jarvis_reserva", preferirReserva ? "1" : "0"); atualizarVoz(); };
+$("#selKokoro").onfocus = aquecerVoz;  // abrir o seletor já acorda a voz pra frase de teste
 $("#selKokoro").onchange = e => {
   // troca e já fala uma frase de teste, pra comparar uma voz com a outra
   guardar("jarvis_voz_jarvis", e.target.value);
