@@ -515,9 +515,11 @@ def coletar():
         if item["estado"] in ("atencao", "erro"):
             problemas.append((item["rotulo"], motivo or "pede atenção"))
 
-    item, evs, motivo, conversa = avaliar_hermes(carregados, falha_lc, ref)
-    registrar(item, motivo)
-    eventos += evs
+    # 22/10 (Jessé): "Sim, aposentei o Hermes." Fica cinza e fora da conta; avaliar_hermes guardado
+    # pra se ele voltar.
+    conversa = None
+    registrar({"id": "hermes.telegram", "rotulo": "Jarvis Telegram", "estado": "info",
+               "valor": "desligado, Hermes aposentado em 21/10"}, "")
 
     item, motivo = avaliar_painel(carregados, falha_lc, f_http)
     registrar(item, motivo)
