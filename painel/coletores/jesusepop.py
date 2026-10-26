@@ -2,11 +2,14 @@
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import datetime
 import json
+import os
 import re
 
 from _base import FUSO, MKT, agora, erro, ok, rodar, sqlite_ro
 
 DB = MKT / "Jesusepop/jarvis_yt.db"
+# falha mais velha que isso sai do alerta e vira "Falhas antigas" (info); decisão 2026-10-26
+FALHA_DIAS = int(os.environ.get("PAINEL_FALHA_DIAS", "7"))
 # youtube_id -> facebook_id, gravado pelo copiar_agenda_fb.py (a cópia vai pro Facebook no mesmo horário)
 FB_COPIAS = MKT / "Jesusepop/JesusEPop_producao/jarvis/fb_copiados.json"
 NOMES = {"pt": "Jesus é Pop", "es": "Jesús es Pop"}
@@ -68,9 +71,16 @@ def coletar():
         itens.append({"id": f"jesusepop.{conta}.agendados", "rotulo": f"{nome} · agendados 7 dias",
                       "valor": str(n7), "estado": "ok" if n7 else "atencao"})
 
-    falhas = c.execute("SELECT * FROM agenda WHERE status='failed' ORDER BY quando_utc DESC").fetchall()
+    todas = c.execute("SELECT * FROM agenda WHERE status='failed' ORDER BY quando_utc DESC").fetchall()
+    corte_falha = agora_utc - datetime.timedelta(days=FALHA_DIAS)
+    falhas = [f for f in todas if brt(f["quando_utc"]) >= corte_falha]
+    antigas = [f for f in todas if brt(f["quando_utc"]) < corte_falha]
     itens.append({"id": "jesusepop.falhas", "rotulo": "Falhas na agenda", "valor": str(len(falhas)),
                   "estado": "erro" if falhas else "ok"})
+    if antigas:
+        datas = ", ".join(f"{f['conta'].upper()} {brt(f['quando_utc']):%d/%m}" for f in antigas[:3])
+        itens.append({"id": "jesusepop.falhas-antigas", "rotulo": f"Falhas antigas (mais de {FALHA_DIAS} dias)",
+                      "valor": f"{len(antigas)} · {datas}", "estado": "info"})
 
     ult = c.execute("SELECT max(data) d FROM coleta").fetchone()["d"]
     ruins = []

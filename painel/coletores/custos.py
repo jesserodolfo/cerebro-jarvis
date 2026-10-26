@@ -147,6 +147,17 @@ def atualizar(cache, ini_brt, precos):
         reg["mtime"], reg["tamanho"] = st.st_mtime, st.st_size
 
 
+def leitura_da_semana(leitura, ini_brt, agora_brt):
+    """Última leitura real do plano (anotar_plano.py): (quando, pct, usd) só se for desta semana."""
+    try:
+        em = datetime.datetime.fromisoformat(leitura["em"])
+        if ini_brt <= em <= agora_brt:
+            return em, float(leitura["pct"]), float(leitura["usd"])
+    except (TypeError, KeyError, ValueError):
+        pass
+    return None
+
+
 def fatia_de(pasta, fatias):
     for fa in fatias:
         if any(p in pasta for p in fa.get("pastas", [])):
@@ -200,14 +211,24 @@ def coletar():
 
     horas = max((agora_brt - ini).total_seconds() / 3600, 1.0)
     fator = 168 / horas  # projeta o gasto atual pra semana inteira
-    uso_pct = total / cap * 100
+    est_pct = total / cap * 100
+    # com leitura real desta semana: leitura + o que os logs somaram depois dela (o uso fora do
+    # Claude Code até a leitura já está dentro do %); sem leitura, só a estimativa dos logs
+    leitura = leitura_da_semana(cfg["semana"].get("leitura"), ini, agora_brt)
+    if leitura:
+        lido_em, lido_pct, lido_usd = leitura
+        extra_pct = max(total - lido_usd, 0.0) / cap * 100
+        uso_pct = lido_pct + extra_pct
+        valor_semana = f"{pct(uso_pct)} ({pct(lido_pct)} medido {lido_em:%d/%m %H:%M} + {pct(extra_pct)} estimado)"
+    else:
+        uso_pct = est_pct
+        valor_semana = f"{pct(uso_pct)} estimado ({usd(total)} de ~{usd(cap)})"
     ritmo_pct = uso_pct * fator
     calibrado = cfg["semana"].get("calibrado_em", "")
 
     estado_semana = "erro" if uso_pct >= 100 else "atencao" if uso_pct > 70 else "ok"
     itens = [
-        {"id": "custos.semana", "rotulo": "Semana do plano",
-         "valor": f"{pct(uso_pct)} estimado ({usd(total)} de ~{usd(cap)})", "estado": estado_semana},
+        {"id": "custos.semana", "rotulo": "Semana do plano", "valor": valor_semana, "estado": estado_semana},
         {"id": "custos.previsao", "rotulo": "Previsão até domingo", "valor": f"{pct(ritmo_pct)} do limite no ritmo atual",
          "estado": "ok" if ritmo_pct <= 85 else "atencao" if ritmo_pct <= 100 else "erro"},
     ]
@@ -247,6 +268,9 @@ def coletar():
 
     api = uso_api_semana(ini.astimezone(datetime.timezone.utc))
     itens.append({"id": "custos.api", "rotulo": "API do painel", "valor": f"{usd(api)} na semana", "estado": "info"})
+    if leitura:
+        itens.append({"id": "custos.logs", "rotulo": "Só os logs do Claude Code",
+                      "valor": f"{pct(est_pct)} ({usd(total)} de ~{usd(cap)})", "estado": "info"})
     itens.append({"id": "custos.estimativa", "rotulo": "Estimativa", "valor": f"calibrada em {calibrado}", "estado": "info"})
     if sem_preco:
         itens.append({"id": "custos.sem-preco", "rotulo": "Sem preço", "valor": f"{sem_preco} respostas de modelo fora da tabela", "estado": "info"})

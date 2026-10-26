@@ -2,16 +2,17 @@
   "semana": {
     "inicio": "domingo 09:00 BRT",
     "capacidade_usd": 920,
-    "calibrado_em": "2026-10-20 19:10 BRT, 31% = US$285 de equivalente de API"
+    "calibrado_em": "2026-10-20 19:10 BRT, 31% = US$285 de equivalente de API",
+    "leitura": {"em": "2026-10-26T09:15-03:00", "pct": 8, "usd": 39.99}
   },
   "fatias": [
     {"id": "tiktok", "rotulo": "TikTok", "pct": 30, "pastas": ["tiktok-video-ia"]},
     {"id": "fabrica", "rotulo": "Fábrica Instagram", "pct": 20, "pastas": ["fabrica-conteudo"]},
     {"id": "jesusepop", "rotulo": "Jesus é Pop", "pct": 20, "pastas": ["Jesusepop", "canaljesusepop", "cakto-canaljesusepop"]},
     {"id": "videos", "rotulo": "Vídeos Instagram", "pct": 15, "pastas": ["video-claude-code", "cortes", "my-video", "remotion-dev"]},
-    {"id": "outros", "rotulo": "Outros", "pct": 5, "pastas": []}
+    {"id": "outros", "rotulo": "Outros", "pct": 15, "pastas": []}
   ],
-  "reserva_pct": 10,
+  "reserva_pct": 0,
   "voz": {
     "provedor": "kokoro",
     "voz": "pm_alex",
