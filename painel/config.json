@@ -24,6 +24,16 @@
     "max_caracteres_pedido": 600,
     "legenda": "Kokoro 82M local (decisão 2026-10-20-voz-kokoro). provedor: kokoro, elevenlabs (parado) ou nenhum"
   },
+  "acoes": [
+    {"id": "jesusepop.coleta", "rotulo": "Rodar a coleta de novo", "bloco": "jesusepop",
+     "pergunta": "Rodo a coleta do Jesus é Pop de novo, senhor?",
+     "feito": "Coleta do Jesus é Pop rodando, senhor. Ela leva de 10 a 45 minutos; aviso quando o alerta sair.",
+     "espera_min": 50, "servico": "com.jesusepop.coleta",
+     "gatilho": "(roda|rodar|rode|refaz|refazer|refaca|executa|executar) (de novo )?(a )?coleta",
+     "itens": ["jesusepop.coleta"],
+     "comando": ["/bin/launchctl", "kickstart", "gui/{uid}/com.jesusepop.coleta"]}
+  ],
+  "acoes_legenda": "lista fechada (decisão 2026-10-27-acoes-e-agenda-tiktok): só roda com clique ou 'sim' do Jessé; o modelo nunca dispara",
   "nuvem": {"total_usd": 250, "saldo_usd": 148, "lido_em": "2026-10-20", "expira": "2026-11-05T04:59:00-03:00"},
   "precos_por_milhao": {
     "opus-5-5": [4, 20, 0.20, 5],

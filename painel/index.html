@@ -109,6 +109,11 @@ a{color:var(--tema);text-decoration:none}a:hover{text-decoration:underline}
 .criticos b{display:block;font-size:14px;color:#ffe1de}
 .criticos small{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#ff9a90;text-transform:uppercase}
 .mais-atencao{margin-top:12px;font-size:12px;color:var(--atencao);background:none;border:0;padding:0;cursor:pointer}
+.btn-acao{margin-top:8px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;padding:6px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--tema);color:var(--tema);background:rgba(45,212,255,.08)}
+.btn-acao:hover{background:rgba(45,212,255,.18)}
+.btn-acao:disabled{opacity:.45;cursor:default}
+.tempo li.previsto,.post.previsto{opacity:.5;font-style:italic}
 
 /* ---------- agenda ---------- */
 .semana-wrap{overflow-x:auto;padding:4px}
@@ -399,6 +404,9 @@ let notas = [], rel = [], estadoAtual = null, usoAtual = {};
 let historico = [], ultimaPergunta = "";
 let modo = lerGuardado("jarvis_modo") === "profundo" ? "profundo" : "rapido";
 let abaAtual = "geral", blocoGaveta = null;
+let acaoPendente = null, vigiaAcao = null;  // ação oferecida por voz (espera o "sim") e a que está rodando
+const RESUMO = "__resumo";                  // gaveta do resumo do dia
+const CONFIRMA_MS = 20000;
 let busy = false, armado = false, tArmado = null, micLigado = false, escutando = false, rec = null;
 let filaFala = [], falando = false, respostaAberta = false, fraseBuf = "", textoResp = "", abortCtl = null, geracaoFala = 0;
 let vozes = [], voz = null;
@@ -580,7 +588,7 @@ function extrairFrases() {
 function finalizarTurno() {
   busy = false;
   setEstado("ocioso");
-  armar();          // janela pra continuar a conversa sem repetir a palavra de ativação
+  armar(acaoPendente ? CONFIRMA_MS : 8000);  // janela pra continuar a conversa (ou dizer "sim") sem a palavra de ativação
   iniciarEscuta();
 }
 function interromper() {
@@ -591,7 +599,7 @@ function interromper() {
   if (abortCtl) abortCtl.abort();
   audioEl.onended = audioEl.onerror = null; audioEl.pause();
   if ("speechSynthesis" in window) speechSynthesis.cancel();
-  falando = false; busy = false;
+  falando = false; busy = false; acaoPendente = null;
   setEstado("ocioso");
   iniciarEscuta();
 }
@@ -626,11 +634,11 @@ function pararEscuta() {
   try { rec.abort(); } catch (e) {}
   escutando = false;
 }
-function armar() {
+function armar(ms = 8000) {
   armado = true;
   if (!busy) setEstado(micLigado ? "ouvindo" : "ocioso");
   clearTimeout(tArmado);
-  tArmado = setTimeout(() => { armado = false; if (!busy) setEstado("ocioso"); }, 8000);
+  tArmado = setTimeout(() => { armado = false; if (!busy) setEstado("ocioso"); }, ms);
 }
 function ouvir(txt) {
   const m = txt.match(WAKE);
@@ -657,10 +665,23 @@ async function comando(txt) {
     const achada = ABAS_FALADAS.find(([re]) => re.test(n));
     if (achada) { trocarAba(achada[1]); return responderLocal("Pois não, senhor."); }
   }
-  if (/(resumo do dia|briefing|status geral|como estao (os )?(meus )?projetos)/.test(n)) return falarLocal("/api/briefing");
-  if (/(como (esta|estao) (a |os agentes da )?melavitta|agentes da melavitta)/.test(n)) return falarLocal("/api/briefing?bloco=melavitta");
-  if (/como (esta|estao) (os )?(meus )?agentes/.test(n)) return falarLocal("/api/briefing?bloco=agentes");
-  if (/^(noticias|quais (sao )?as noticias|me (da|de) as noticias)/.test(n)) return falarLocal("/api/briefing?bloco=noticias");
+  // ação oferecida: só roda com o "sim" do Jessé dentro da janela; o modelo nunca dispara ação
+  const pend = acaoPendente && Date.now() < acaoPendente.ate ? acaoPendente : null;
+  acaoPendente = null;
+  if (pend) {
+    if (/^(sim|pode|manda|confirma|confirmo|vai|faz|roda|ok|claro)\b/.test(n)) return executarAcao(pend.id);
+    if (/^(nao|deixa|agora nao|depois)\b/.test(n)) return responderLocal("Tudo bem, senhor.");
+  }
+  const pedida = ((estadoAtual && estadoAtual.acoes) || []).find(a => a.gatilho && new RegExp(a.gatilho).test(n));
+  if (pedida) return oferecerAcao(pedida);
+  if (/\b(resolve|resolver|resolva|conserta|consertar|arruma|arrumar)\b/.test(n)) {
+    const al = alertaComAcao(a => a.estado === "erro") || alertaComAcao();
+    return al ? oferecerAcao(acaoPorId(al.acao)) : responderLocal("Senhor, ainda não tenho ação pronta pros alertas de agora.");
+  }
+  if (/(resumo do dia|briefing|status geral|como estao (os )?(meus )?projetos)/.test(n)) return falarLocal("/api/briefing", RESUMO, a => a.estado === "erro");
+  if (/(como (esta|estao) (a |os agentes da )?melavitta|agentes da melavitta)/.test(n)) return falarLocal("/api/briefing?bloco=melavitta", "melavitta");
+  if (/como (esta|estao) (os )?(meus )?agentes/.test(n)) return falarLocal("/api/briefing?bloco=agentes", "agentes", a => a.bloco === "agentes");
+  if (/^(noticias|quais (sao )?as noticias|me (da|de) as noticias)/.test(n)) return falarLocal("/api/briefing?bloco=noticias", "noticias");
   if (/atualiza(r)? (o )?painel/.test(n)) { await carregarEstado(true); return responderLocal("Painel atualizado, senhor."); }
   if (/^(pensa|pense) melhor$/.test(n) || /^(pensa|pense) melhor (nisso|nessa)$/.test(n)) {
     if (!ultimaPergunta) return responderLocal("Pois não, senhor. Qual é a pergunta?");
@@ -672,12 +693,77 @@ async function comando(txt) {
   perguntar(txt, /(pensa|pense) melhor|analisa com calma/.test(n) ? "profundo" : modo);
 }
 function responderLocal(t) { setJarvis(t); respostaAberta = false; falar(t); }
-async function falarLocal(rota) {
+// gaveta: abre junto com a fala; oferta: filtro dos alertas cuja ação o Jarvis pergunta no fim
+async function falarLocal(rota, gaveta, oferta) {
   busy = true; pararEscuta(); setEstado("pensando");
   try {
     const r = await fetch(rota); const d = await r.json();
-    responderLocal(d.texto);
+    if (gaveta) abrirGaveta(gaveta);
+    const al = oferta && alertaComAcao(oferta), a = al && acaoPorId(al.acao);
+    if (a) acaoPendente = { id: a.id, ate: Date.now() + CONFIRMA_MS + 5000 };
+    responderLocal(a ? `${d.texto} ${a.pergunta}` : d.texto);
   } catch (e) { responderLocal("Senhor, não consegui ler o painel agora."); }
+}
+
+// ---------- ações (lista fechada do servidor; clique ou "sim" do Jessé confirmam) ----------
+const acaoPorId = id => ((estadoAtual && estadoAtual.acoes) || []).find(a => a.id === id);
+const acaoDoItem = id => ((estadoAtual && estadoAtual.acoes) || []).find(a => id && (a.itens || []).includes(id));
+const acaoRodando = id => (vigiaAcao && vigiaAcao.id === id) || !!(acaoPorId(id) || {}).rodando;
+function alertaComAcao(filtro = () => true) {
+  return ((estadoAtual && estadoAtual.alertas) || []).find(a => a.acao && filtro(a) && !acaoRodando(a.acao));
+}
+function retomarVigia() {
+  // painel recarregado com ação ainda rodando no servidor: volta a esperar o alerta sair
+  if (vigiaAcao || !estadoAtual) return;
+  const a = (estadoAtual.acoes || []).find(x => x.rodando && (estadoAtual.alertas || []).some(al => al.acao === x.id));
+  if (a) vigiar(a);
+}
+function botaoAcao(id) {
+  const a = acaoPorId(id);
+  if (!a) return "";
+  const rodando = acaoRodando(id);
+  return `<button class="btn-acao" data-acao="${esc(id)}"${rodando ? " disabled" : ""}>${rodando ? "RODANDO…" : "▶ " + esc(a.rotulo.toUpperCase())}</button>`;
+}
+function oferecerAcao(a) {
+  if (acaoRodando(a.id)) return responderLocal("Senhor, essa ação já está rodando. Aviso quando o alerta sair.");
+  acaoPendente = { id: a.id, ate: Date.now() + CONFIRMA_MS + 5000 };
+  responderLocal(a.pergunta);
+}
+async function executarAcao(id) {
+  const a = acaoPorId(id);
+  acaoPendente = null;
+  if (!a) return responderLocal("Senhor, essa ação não está na lista.");
+  try {
+    const r = await fetch("/api/acao", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+    const d = await r.json();
+    if (r.ok && d.ok) { vigiar(a); return responderLocal(d.texto); }
+    if (d.codigo === "repetida") return responderLocal("Senhor, essa ação acabou de rodar. Estou esperando o resultado.");
+    responderLocal(`Senhor, a ação falhou: ${d.erro || "sem detalhe"}.`);
+  } catch (e) { responderLocal("Senhor, não consegui falar com o servidor do painel."); }
+}
+function vigiar(a) {
+  // relê só os blocos do alerta a cada 30 s, até espera_min da ação (padrão 5), e avisa quando ele sair
+  if (vigiaAcao) clearInterval(vigiaAcao.timer);
+  const blocos = [...new Set(((estadoAtual && estadoAtual.alertas) || []).filter(x => x.acao === a.id).map(x => x.bloco))];
+  const inicio = Date.now(), minutos = a.espera_min || 5;
+  let parado = 0;  // leituras seguidas com o serviço já sem processo
+  vigiaAcao = { id: a.id, timer: setInterval(async () => {
+    await carregarEstado(blocos.join(",") || true);
+    const resta = ((estadoAtual && estadoAtual.alertas) || []).some(x => x.acao === a.id);
+    parado = (acaoPorId(a.id) || {}).rodando ? 0 : parado + 1;
+    const terminou = parado >= 2, venceu = Date.now() - inicio >= minutos * 60e3;
+    if (resta && !terminou && !venceu) return;
+    clearInterval(vigiaAcao.timer); vigiaAcao = null;
+    if (estadoAtual) renderTudo(estadoAtual);
+    avisarLivre(!resta ? "Pronto, senhor. O alerta saiu do painel."
+      : terminou ? "Senhor, a ação terminou e o alerta continua. Vale abrir o card."
+      : `Senhor, passaram ${minutos} minutos e o alerta continua. Vale abrir o card.`);
+  }, 30000) };
+  if (estadoAtual) renderTudo(estadoAtual);
+}
+function avisarLivre(t, tentativas = 20) {
+  if (!busy) return responderLocal(t);
+  if (tentativas > 0) setTimeout(() => avisarLivre(t, tentativas - 1), 3000);
 }
 async function perguntar(txt, m) {
   busy = true; pararEscuta(); setEstado("pensando");
@@ -828,7 +914,7 @@ function renderGeral(est) {
   let marcou = false, html = "";
   for (const a of doDia) {
     if (!marcou && a._d > agora) { html += `<li class="agora">AGORA ${horaBRT(agora)}</li>`; marcou = true; }
-    html += `<li data-bloco="${esc(a._bloco)}" class="${a._d <= agora ? "passou" : ""}" title="${esc(a.texto)}">
+    html += `<li data-bloco="${esc(a._bloco)}" class="${a._d <= agora ? "passou" : ""}${a.previsto ? " previsto" : ""}" title="${esc(a.texto)}">
       <span class="hora">${horaBRT(a._d)}</span><span class="rede ${esc(a.rede)}">${esc(SIGLA[a.rede] || "·")}</span>
       <span class="txt"><small>${esc(a.conta)}</small>${esc(a.texto)}</span><span class="ponto ${esc(a.estado || "info")}"></span></li>`;
   }
@@ -839,7 +925,7 @@ function renderGeral(est) {
   $("#criticos").innerHTML = (crit.length
     ? `<ul class="criticos">${crit.slice(0, 3).map(a => {
         const t = String(a.texto), i = t.indexOf(": ");
-        return `<li data-bloco="${esc(a.bloco)}"><small>${esc(tituloBloco(a.bloco))}</small><b>${esc(i > 0 ? t.slice(i + 2) : t)}</b></li>`;
+        return `<li data-bloco="${esc(a.bloco)}"><small>${esc(tituloBloco(a.bloco))}</small><b>${esc(i > 0 ? t.slice(i + 2) : t)}</b>${a.acao ? botaoAcao(a.acao) : ""}</li>`;
       }).join("")}</ul>${crit.length > 3 ? `<p class="vazio" style="margin-top:8px">e mais ${crit.length - 3} em Projetos</p>` : ""}`
     : `<p class="vazio"><span class="ponto ok"></span> Nenhum alerta crítico.</p>`)
     + (aten ? `<button class="mais-atencao" data-ir="projetos">${aten} pontos de atenção em Projetos ›</button>` : "");
@@ -849,7 +935,7 @@ function renderGeral(est) {
   $("#m1").textContent = dest ? dest.valor : "··";
   MED[0].alvo = isNaN(pct) ? 0 : Math.min(pct / 100, 1);
   MED[0].cor = dest && dest.estado === "erro" ? "#ff5547" : dest && dest.estado === "atencao" ? "#fbbf24" : "#2dd4ff";
-  const posts = doDia.filter(a => a.rede !== "rotina"), feitos = posts.filter(a => a.estado === "ok").length;
+  const posts = doDia.filter(a => a.rede !== "rotina" && !a.previsto), feitos = posts.filter(a => a.estado === "ok").length;
   $("#m2").textContent = posts.length;
   MED[1].alvo = posts.length ? feitos / posts.length : 0;
   $("#m3").textContent = crit.length;
@@ -878,7 +964,7 @@ function renderAgenda(est) {
     html += `<div class="rede-nome"><span class="rede ${rede}">${SIGLA[rede]}</span>${nome}</div>`;
     dias.forEach((d, i) => {
       const doDia = daRede.filter(a => diaBRT(a._d) === d);
-      const posts = doDia.slice(0, 4).map(a => `<div class="post" data-bloco="${esc(a._bloco)}" title="${esc(a.conta + " · " + a.texto)}">
+      const posts = doDia.slice(0, 4).map(a => `<div class="post${a.previsto ? " previsto" : ""}" data-bloco="${esc(a._bloco)}" title="${esc(a.conta + " · " + a.texto)}">
         <span class="ponto ${esc(a.estado || "info")}"></span><span><span class="h">${horaBRT(a._d)}</span>${esc(a.texto)}</span></div>`).join("");
       const extra = doDia.length > 4 ? `<div class="extra">+${doDia.length - 4}</div>` : "";
       const vazio = !daRede.length && i === 0 ? `<div class="sem-dado">sem dados de agenda</div>` : "";
@@ -887,7 +973,7 @@ function renderAgenda(est) {
   }
   $("#semana").innerHTML = html;
   const vazios = REDES.filter(([r]) => !todos.some(a => a.rede === r)).map(r => r[1]);
-  $("#agendaResumo").textContent = `${todos.length} posts nos próximos 7 dias` + (vazios.length ? ` · sem agenda: ${vazios.join(", ")}` : "");
+  $("#agendaResumo").textContent = `${todos.filter(a => !a.previsto).length} posts nos próximos 7 dias` + (vazios.length ? ` · sem agenda: ${vazios.join(", ")}` : "");
 }
 
 // ---------- projetos e gaveta ----------
@@ -912,11 +998,15 @@ function renderProjetos(est) {
   }).join("");
 }
 function abrirGaveta(n) {
+  if (n === RESUMO) return abrirResumo();
   const b = estadoAtual && estadoAtual.blocos[n];
   if (!b) return;
   blocoGaveta = n;
   const d = b.dados || {}, g = estadoGeral(b);
-  const itens = (d.itens || []).map(i => `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}</span></li>`).join("");
+  const itens = (d.itens || []).map(i => {
+    const a = ["erro", "atencao"].includes(i.estado) && acaoDoItem(i.id);
+    return `<li><span class="ponto ${esc(i.estado || "info")}"></span><span><b>${esc(i.rotulo)}</b> ${esc(i.valor)}${a ? "<br>" + botaoAcao(a.id) : ""}</span></li>`;
+  }).join("");
   const lista = (d.lista || []).map(x => {
     const txt = `${x.quando ? esc(x.quando) + " · " : ""}${esc(x.texto)}`;
     const corpo = linkSeguro(x.link) ? `<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">${txt}</a>` : txt;
@@ -930,6 +1020,29 @@ function abrirGaveta(n) {
     ${itens ? `<div class="rotulo">ITENS</div><ul>${itens}</ul>` : ""}
     ${lista ? `<div class="rotulo">EVENTOS</div><ul>${lista}</ul>` : ""}
     ${links ? `<div class="links">${links}</div>` : ""}`;
+  mostrarGaveta();
+}
+function abrirResumo() {
+  if (!estadoAtual) return;
+  blocoGaveta = RESUMO;
+  const blocos = estadoAtual.blocos;
+  const nomes = [...ORDEM_PROJETOS.filter(n => blocos[n]), ...Object.keys(blocos).filter(n => !ORDEM_PROJETOS.includes(n))];
+  const crit = (estadoAtual.alertas || []).filter(a => a.estado === "erro").map(a => {
+    const t = String(a.texto), i = t.indexOf(": ");
+    return `<li><span class="ponto erro"></span><span><b>${esc(a.titulo)}</b> ${esc(i > 0 ? t.slice(i + 2) : t)}${a.acao ? "<br>" + botaoAcao(a.acao) : ""}</span></li>`;
+  }).join("");
+  const linhas = nomes.map(n => {
+    const b = blocos[n];
+    return `<li data-abre="${esc(n)}" style="cursor:pointer"><span class="ponto ${estadoGeral(b)}"></span>
+      <span><b>${esc(tituloBloco(n))}</b> ${esc(b.ok ? b.resumo : "Sem dados agora: " + b.erro)}</span></li>`;
+  }).join("");
+  $("#gavetaConteudo").innerHTML = `<h2><span class="ponto ${crit ? "erro" : "ok"}"></span>RESUMO DO DIA</h2>
+    <div class="rotulo">atualizado ${esc(String(estadoAtual.gerado || "").slice(11, 16))}</div>
+    ${crit ? `<div class="rotulo">CRÍTICOS</div><ul>${crit}</ul>` : ""}
+    <div class="rotulo">PROJETOS (clique pra abrir)</div><ul>${linhas}</ul>`;
+  mostrarGaveta();
+}
+function mostrarGaveta() {
   $("#gaveta").classList.add("aberta"); $("#gaveta").setAttribute("aria-hidden", "false");
   $("#fundoGaveta").classList.remove("oculto");
 }
@@ -942,6 +1055,13 @@ $("#fecharGaveta").onclick = fecharGaveta;
 $("#fundoGaveta").onclick = fecharGaveta;
 document.addEventListener("keydown", e => { if (e.key === "Escape") { fecharGaveta(); } });
 document.addEventListener("click", e => {
+  const ac = e.target.closest("[data-acao]");
+  if (ac) {  // o clique é a confirmação do Jessé
+    if (!ac.disabled) { if (busy) interromper(); executarAcao(ac.dataset.acao); }
+    return;
+  }
+  const abre = e.target.closest("[data-abre]");
+  if (abre) return abrirGaveta(abre.dataset.abre);
   const ir = e.target.closest("[data-ir]");
   if (ir) return trocarAba(ir.dataset.ir);
   const alvo = e.target.closest("[data-bloco]");
@@ -980,9 +1100,11 @@ function renderTudo(est) {
 }
 async function carregarEstado(forcar) {
   try {
-    const r = await fetch("/api/estado" + (forcar ? "?forcar=1" : ""));
+    // forcar: true refaz todos os coletores; texto "a,b" refaz só esses
+    const r = await fetch("/api/estado" + (forcar === true ? "?forcar=1" : forcar ? "?forcar=" + encodeURIComponent(forcar) : ""));
     estadoAtual = await r.json();
     renderTudo(estadoAtual);
+    retomarVigia();
   } catch (e) {
     $("#criticos").innerHTML = `<ul class="criticos"><li><small>servidor</small><b>Não consegui falar com o servidor do painel.</b></li></ul>`;
   }

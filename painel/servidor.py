@@ -9,6 +9,7 @@ Rotas:
   POST /api/chat       pergunta ao Claude, resposta em streaming (linhas "data: {...}")
   POST /api/voz        uma frase em áudio pelo provedor do config.json (voz_<provedor>.py), ou JSON de erro pra voz reserva
   GET  /api/uso        gasto da API (sessão e hoje) e situação da voz
+  POST /api/acao       roda uma ação da lista fechada de config.json/acoes (o Jessé confirmou no painel)
 """
 import concurrent.futures
 import datetime
@@ -16,11 +17,13 @@ import importlib
 import json
 import os
 import re
+import subprocess
 import sys
 import threading
 import time
 import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,6 +40,9 @@ NOTAS = PAINEL / "notas.json"
 LOGS = PAINEL / "logs"
 USO_LOG = LOGS / "uso-api.jsonl"
 CONFIG = json.loads((PAINEL / "config.json").read_text())
+ACOES = {a["id"]: a for a in CONFIG.get("acoes", [])}  # decisão 2026-10-27-acoes-e-agenda-tiktok
+ACOES_LOG = LOGS / "acoes.jsonl"
+ACAO_INTERVALO = 120  # segundos: clique duplo ou voz + clique não rodam a mesma ação duas vezes
 
 COLETORES = ["tiktok", "instagram", "jesusepop", "custos", "sites", "agentes", "melavitta", "noticias"]
 VALIDADE = {"noticias": 900, "custos": 120, "melavitta": 300}  # segundos; o resto vale 60
@@ -57,6 +63,8 @@ SAVE = re.compile(r"\[\[SAVE:([a-z_]+)\|([^|\]]+)\|([\s\S]+?)\]\]")
 
 trava_notas = threading.Lock()
 trava_estado = threading.Lock()
+trava_acao = threading.Lock()
+ultima_acao = {}  # id -> instante da última execução
 cache = {}  # nome -> (instante, resultado)
 uso_sessao = {"chamadas": 0, "custo_usd": 0.0, "entrada": 0, "saida": 0, "cache_lido": 0}
 
@@ -72,10 +80,12 @@ def rodar_coletor(nome):
 
 
 def estado(forcar=False):
+    """forcar: True refaz todos os coletores; um conjunto de nomes refaz só esses."""
     agora = time.time()
     with trava_estado:
         vencidos = [n for n in COLETORES
-                    if forcar or n not in cache or agora - cache[n][0] > VALIDADE.get(n, 60)]
+                    if forcar is True or (forcar and n in forcar)
+                    or n not in cache or agora - cache[n][0] > VALIDADE.get(n, 60)]
         if vencidos:
             with concurrent.futures.ThreadPoolExecutor(len(vencidos)) as ex:
                 futuros = {n: ex.submit(rodar_coletor, n) for n in vencidos}
@@ -96,10 +106,94 @@ def estado(forcar=False):
         for it in dados.get("itens", []):
             if it.get("estado") in ("erro", "atencao"):
                 alertas.append({"bloco": n, "estado": it["estado"], "titulo": dados.get("titulo", n),
-                                "rotulo": it.get("rotulo"),
+                                "rotulo": it.get("rotulo"), "id": it.get("id"), "acao": acao_do_item(it.get("id")),
                                 "texto": f"{dados.get('titulo', n)}: {it.get('rotulo')} {it.get('valor')}"})
     alertas.sort(key=lambda a: a["estado"] != "erro")
-    return {"gerado": _base.agora().isoformat(timespec="seconds"), "blocos": blocos, "alertas": alertas}
+    return {"gerado": _base.agora().isoformat(timespec="seconds"), "blocos": blocos, "alertas": alertas,
+            "acoes": acoes_publicas()}
+
+
+# ---------- ações (lista fechada, sempre confirmadas pelo Jessé no painel) ----------
+
+def acao_do_item(item_id):
+    for a in ACOES.values():
+        if item_id and item_id in a.get("itens", []):
+            return a["id"]
+    return None
+
+
+def servico_rodando(label):
+    """True/False se o serviço do launchd tem processo vivo; None se não deu pra ler."""
+    try:
+        r = subprocess.run(["/bin/launchctl", "list", label], capture_output=True, text=True, timeout=3)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return '"PID" = ' in r.stdout if r.returncode == 0 else None
+
+
+def acao_rodando(a):
+    """Pelo processo do serviço (config acoes[].servico); sem ele, rodou há menos de espera_min."""
+    vivo = servico_rodando(a["servico"]) if a.get("servico") else None
+    if vivo is not None:
+        return vivo
+    return time.time() - ultima_acao.get(a["id"], 0) < float(a.get("espera_min") or 5) * 60
+
+
+def acoes_publicas():
+    """O que o front precisa pra oferecer a ação. O comando nunca sai do servidor.
+    rodando: o painel recarregado continua esperando o alerta sair e não oferece a ação de novo."""
+    return [{**{k: a.get(k) for k in ("id", "rotulo", "pergunta", "feito", "gatilho", "bloco", "itens", "espera_min")},
+             "rodando": acao_rodando(a)}
+            for a in ACOES.values()]
+
+
+def carregar_ultimas_acoes():
+    """Na subida do servidor: última execução bem-sucedida de cada ação, lida do acoes.jsonl."""
+    try:
+        linhas = ACOES_LOG.read_text().splitlines()
+    except OSError:
+        return
+    for linha in linhas:
+        try:
+            reg = json.loads(linha)
+            if reg.get("codigo") == 0 and reg.get("id") in ACOES:
+                ultima_acao[reg["id"]] = datetime.datetime.fromisoformat(reg["ts"]).timestamp()
+        except (ValueError, KeyError, TypeError):
+            continue
+
+
+def registrar_acao(reg):
+    try:
+        LOGS.mkdir(exist_ok=True)
+        with open(ACOES_LOG, "a") as f:
+            f.write(json.dumps(reg, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+
+
+def executar_acao(acao_id):
+    """(resposta, status http). Só ids de config.json/acoes; argumentos fixos, sem shell."""
+    a = ACOES.get(acao_id) if isinstance(acao_id, str) else None
+    if not a:
+        return {"erro": "ação fora da lista"}, 400
+    with trava_acao:
+        passou = time.time() - ultima_acao.get(acao_id, 0)
+        if passou < ACAO_INTERVALO:
+            return {"erro": f"já rodou há {int(passou)} s", "codigo": "repetida"}, 429
+        ultima_acao[acao_id] = time.time()
+    cmd = [str(p).replace("{uid}", str(os.getuid())) for p in a["comando"]]
+    reg = {"ts": _base.agora().isoformat(timespec="seconds"), "id": acao_id}
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        reg.update(codigo=r.returncode, saida=(r.stdout + r.stderr).strip()[-300:])
+    except (OSError, subprocess.TimeoutExpired) as e:
+        reg.update(codigo=-1, saida=type(e).__name__)
+    registrar_acao(reg)
+    if reg["codigo"] != 0:
+        with trava_acao:
+            ultima_acao.pop(acao_id, None)  # falhou: pode tentar de novo na hora
+        return {"ok": False, "id": acao_id, "erro": reg["saida"] or f"código {reg['codigo']}"}, 502
+    return {"ok": True, "id": acao_id, "texto": a.get("feito") or "Feito, senhor."}, 200
 
 
 def estado_rapido():
@@ -150,7 +244,7 @@ def posts_hoje(blocos):
         if not b.get("ok"):
             continue
         for a in b.get("dados", {}).get("agenda") or []:
-            if a.get("rede") == "rotina":
+            if a.get("rede") == "rotina" or a.get("previsto"):
                 continue
             try:
                 total += datetime.datetime.fromisoformat(a["quando"]).astimezone(_base.FUSO).date() == hoje
@@ -461,7 +555,8 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return self.wfile.write(corpo)
         if rota == "/api/estado":
-            return self._json(estado(forcar="forcar=1" in query))
+            valor = urllib.parse.parse_qs(query).get("forcar", [""])[0]
+            return self._json(estado(forcar=True if valor == "1" else {n for n in valor.split(",") if n in COLETORES}))
         if rota == "/api/briefing":
             bloco = query.partition("bloco=")[2].split("&")[0] or None
             return self._json(briefing(bloco))
@@ -511,6 +606,11 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/voz/aquecer":
             aquecer_voz()
             return self._json({"ok": True}, 202)
+        if self.path == "/api/acao":
+            if self.headers.get("Origin") not in ORIGENS:
+                return self._json({"erro": "proibido"}, 403)  # ação só sai de um clique ou voz no próprio painel
+            resposta, status = executar_acao(corpo.get("id"))
+            return self._json(resposta, status)
         if self.path == "/api/voz":
             return self._voz(corpo.get("texto") if isinstance(corpo.get("texto"), str) else "",
                              corpo.get("voz") if isinstance(corpo.get("voz"), str) else None)
@@ -551,6 +651,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def principal():
     LOGS.mkdir(exist_ok=True)
+    carregar_ultimas_acoes()
     threading.Thread(target=estado, daemon=True).start()  # aquece o cache dos coletores
     srv = ThreadingHTTPServer(("127.0.0.1", PORTA), Handler)
     srv.daemon_threads = True

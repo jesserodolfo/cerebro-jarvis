@@ -1,10 +1,12 @@
-"""Coletor TikTok: @mirian.dicas1 (afiliada, postagem à mão), @jesse.ia (Zernio) e @vendaepop (loja, Zernio próprio).
-Só leitura. Fontes: tiktok-video-ia/saida, banco/clipes.csv, contas/mirian.dicas1/fila-produtos.tsv e GET no Zernio."""
+"""Coletor TikTok: @mirian.dicas1 (afiliada, postagem à mão), @jesse.ia (pastas saida/ + Zernio) e @vendaepop
+(loja, Zernio próprio). Só leitura. Fontes: tiktok-video-ia/saida, banco/clipes.csv, trabalho/*/decisao.json,
+contas/mirian.dicas1/fila-produtos.tsv e GET no Zernio. PAINEL_HOJE=AAAA-MM-DD troca a data de hoje (teste)."""
 import sys, pathlib; sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import csv
 import datetime
 import json
+import os
 import re
 import urllib.parse
 import urllib.request
@@ -16,6 +18,7 @@ PROJ = MKT / "tiktok-video-ia"
 SAIDA = PROJ / "saida"
 FILA_MIRIAN = PROJ / "contas/mirian.dicas1/fila-produtos.tsv"
 CLIPES = PROJ / "banco/clipes.csv"
+TRABALHO = PROJ / "trabalho"
 ENV_PROJ = PROJ / ".env"
 CONTA_JESSEIA = "6ad3eb1e97f5a378e29426e1"
 DIAS_OLHAR = 14  # janela de dias à frente pra achar buraco na fila da Mirian
@@ -41,10 +44,27 @@ def zget(chave, caminho, **params):
         return json.loads(r.read())
 
 
+def hoje_painel():
+    """Data de hoje do coletor. PAINEL_HOJE=AAAA-MM-DD troca só a data; a hora segue o relógio."""
+    try:
+        return datetime.date.fromisoformat(os.environ.get("PAINEL_HOJE", "").strip())
+    except ValueError:
+        return agora().date()
+
+
 def utc_brt(iso):
     if not iso:
         return None
     return datetime.datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(FUSO)
+
+
+def brt(iso):
+    """agendado_para do post.json vem sem fuso: é horário de Brasília."""
+    try:
+        dt = datetime.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+    return dt.replace(tzinfo=FUSO) if dt.tzinfo is None else dt.astimezone(FUSO)
 
 
 def fmt(dt):
@@ -85,8 +105,8 @@ def janela(hoje):
     return ini, fim
 
 
-def evento(agenda, hoje, quando, conta, texto, estado, link=None):
-    """Põe um evento na agenda se cair dentro da janela de 7 dias."""
+def evento(agenda, hoje, quando, conta, texto, estado, link=None, previsto=False):
+    """Põe um evento na agenda se cair dentro da janela de 7 dias. previsto: linha que não é post."""
     ini, fim = janela(hoje)
     if not isinstance(quando, datetime.datetime) or not (ini <= quando <= fim):
         return
@@ -94,6 +114,8 @@ def evento(agenda, hoje, quando, conta, texto, estado, link=None):
          "conta": corta(conta, 24), "texto": corta(primeira_linha(texto, 200), 70), "estado": estado}
     if link:
         e["link"] = link
+    if previsto:
+        e["previsto"] = True
     agenda.append(e)
 
 
@@ -175,11 +197,9 @@ def mirian(hoje):
 
 
 # ---------- jessé.ia ----------
-def jesseia_local(hoje):
-    pastas = [p for p in sorted(SAIDA.glob(f"{hoje:%Y-%m-%d}-*")) if p.is_dir() and not p.name.endswith("-mirian")] \
-        if SAIDA.exists() else []
-    sts = [ler_json(p / "post.json").get("status", "gerado") for p in pastas if (p / "video.mp4").exists()]
-    return sts
+# Fluxo diário: rotina 8h gera os clipes, o Jessé aprova no Telegram, o vídeo é montado e agendado no mesmo dia.
+# status do post.json (pipeline/telegram/aprovar.py) -> estado na agenda; cancelado, refazer e pendente ficam fora
+ESTADO_POST = {"publicado": "ok", "agendado": "info", "postando": "info", "erro": "erro"}
 
 
 def jesseia_zernio(chave):
@@ -189,68 +209,158 @@ def jesseia_zernio(chave):
     return agend, pub, falhas
 
 
+def banco_clipes():
+    """Última linha do banco de clipes por <slug>-<formato> (o csv acumula linhas repetidas)."""
+    banco = {}
+    if CLIPES.exists():
+        with CLIPES.open(newline="") as f:
+            for l in csv.DictReader(f):
+                banco[f"{l.get('slug')}-{l.get('formato')}"] = l
+    return banco
+
+
+def jesseia_pastas(banco):
+    """Posts de saida/<data>-<slug>-<formato>/post.json, pela chave do post no Zernio."""
+    arqs = [a for a in sorted(SAIDA.glob("*/post.json")) if not a.parent.name.endswith("-mirian")] \
+        if SAIDA.exists() else []
+    posts = {}
+    for arq in arqs:
+        st, nome = ler_json(arq), arq.parent.name[11:]
+        produto = (banco.get(nome) or {}).get("produto") or nome.rsplit("-", 1)[0].replace("-", " ").capitalize()
+        posts[st.get("zernio_post_id") or arq.parent.name] = {
+            "quando": brt(st.get("agendado_para")), "status": st.get("status", ""), "link": st.get("url") or None,
+            "texto": produto, "nome": nome}
+    return posts
+
+
+def jesseia_remotos(zernio):
+    """Posts da conta jessé.ia no Zernio pelo _id, o mesmo que o post.json guarda em zernio_post_id."""
+    agend, pub, falhas = zernio
+    posts = {}
+    for lote, status in ((agend, "agendado"), (falhas, "erro"), (pub, "publicado")):
+        for post in lote:
+            for p in plataformas(post, CONTA_JESSEIA):
+                quando = utc_brt((p.get("publishedAt") if status == "publicado" else None) or post.get("scheduledFor"))
+                posts[post.get("_id") or post.get("id")] = {"quando": quando, "status": status,
+                                                            "link": p.get("platformPostUrl"), "texto": post.get("content")}
+    return posts
+
+
+def juntar(locais, remotos):
+    """Um post por id. A pasta manda no horário e no nome; o Zernio manda no status quando já publicou ou falhou."""
+    posts = {k: dict(v) for k, v in locais.items()}
+    for pid, z in remotos.items():
+        if pid not in posts:
+            posts[pid] = dict(z)
+            continue
+        p = posts[pid]
+        if z["status"] in ("publicado", "erro"):
+            p["status"] = z["status"]
+        p["quando"] = p["quando"] or z["quando"]
+        p["link"] = p["link"] or z["link"]
+    return posts
+
+
+def clipes_esperando(hoje, banco, locais):
+    """Clipes de hoje sem decisão no Telegram. A coluna jesseia do banco fica 'aguardando' mesmo depois do OK,
+    então vale o decisao.json do clipe em trabalho/, e clipe que já virou post.json sai da conta."""
+    feitos = {p["nome"] for p in locais.values()}
+    n = 0
+    for nome, l in banco.items():
+        if l.get("data") != hoje.isoformat() or nome in feitos:
+            continue
+        st = ler_json(TRABALHO / nome / "decisao.json").get("status") or (l.get("jesseia") or "").strip()
+        if st == "aguardando":
+            n += 1
+    return n
+
+
+def previstos(agenda, hoje, esperando):
+    """Linhas que não são post: clipes de hoje esperando OK e a rotina 8h nos dias sem post do jessé.ia."""
+    oito = lambda d: datetime.datetime.combine(d, datetime.time(8), FUSO)
+    dias = {e["quando"][:10] for e in agenda}
+    if esperando:
+        evento(agenda, hoje, oito(hoje), "jessé.ia", f"{qtd(esperando, 'clipe')} esperando seu OK no Telegram",
+               "atencao", previsto=True)
+    for i in range(7):
+        d = hoje + datetime.timedelta(days=i)
+        if d.isoformat() not in dias and not (i == 0 and esperando):
+            evento(agenda, hoje, oito(d), "jessé.ia", "rotina 8h · sai depois do seu OK", "info", previsto=True)
+
+
 def jesseia(hoje, zernio):
     itens, lista, agenda = [], [], []
-    sts = jesseia_local(hoje)
-    if sts:
-        cont = ", ".join(f"{sts.count(s)} {s}" for s in sorted(set(sts)))
-        itens.append({"id": "tiktok.jesseia.hoje", "rotulo": "jessé.ia · vídeos de hoje",
-                      "valor": f"{len(sts)} ({cont})", "estado": "ok"})
-    else:
-        itens.append({"id": "tiktok.jesseia.hoje", "rotulo": "jessé.ia · vídeos de hoje",
-                      "valor": "nenhum gerado", "estado": "atencao"})
+    banco = banco_clipes()
+    locais = jesseia_pastas(banco)
+    zernio_ok = not isinstance(zernio, Exception)
+    remotos = jesseia_remotos(zernio) if zernio_ok else {}
+    posts = juntar(locais, remotos)
+    esperando = clipes_esperando(hoje, banco, locais)
 
-    agendados = publicados_hoje = agendados_hoje = 0
+    agendados = publicados_hoje = agendados_hoje = falhas_7d = 0
+    for p in posts.values():
+        quando, st = p["quando"], p["status"]
+        if st not in ESTADO_POST or quando is None:
+            continue
+        evento(agenda, hoje, quando, "jessé.ia", p["texto"], ESTADO_POST[st], p["link"] if st == "publicado" else None)
+        de_hoje = quando.date() == hoje
+        texto = corta(primeira_linha(p["texto"], 200), 60)
+        if st == "publicado" and de_hoje:
+            publicados_hoje += 1
+            item = {"quando": quando, "texto": f"@jesse.ia · publicado · {texto}", "estado": "ok"}
+            if p["link"]:
+                item["link"] = p["link"]
+            lista.append(item)
+        elif st in ("agendado", "postando"):
+            agendados += 1
+            agendados_hoje += 1 if de_hoje else 0
+            lista.append({"quando": quando, "texto": f"@jesse.ia · agendado · {texto}", "estado": "info"})
+        elif st == "erro" and (agora() - quando).days < 7:
+            falhas_7d += 1
+    if esperando:
+        lista.append({"quando": hoje, "texto": f"@jesse.ia · {qtd(esperando, 'clipe')} esperando seu OK no Telegram",
+                      "estado": "atencao"})
+    previstos(agenda, hoje, esperando)
+
+    # aprovado hoje = publicado ou agendado pra hoje; antes das 16h, sem nada ainda, não é problema
+    if publicados_hoje + agendados_hoje:
+        est_hoje = "ok"
+    else:
+        est_hoje = "atencao" if agora().hour >= 16 else "info"
+    partes = ([qtd(publicados_hoje, "publicado")] if publicados_hoje else []) + \
+             ([qtd(agendados_hoje, "agendado")] if agendados_hoje else []) + \
+             ([f"{esperando} esperando OK"] if esperando else [])
+    itens.append({"id": "tiktok.jesseia.hoje", "rotulo": "jessé.ia · hoje",
+                  "valor": ", ".join(partes) or "nada ainda", "estado": est_hoje})
+
     ultimo = None
-    if isinstance(zernio, Exception):
+    if zernio_ok:
+        itens.append({"id": "tiktok.jesseia.agendados", "rotulo": "jessé.ia · agendados no Zernio",
+                      "valor": str(agendados), "estado": "info"})
+        pubs = [(z["quando"], z["link"]) for z in remotos.values() if z["status"] == "publicado" and z["quando"]]
+        ultimo = max(pubs, key=lambda x: x[0]) if pubs else None
+    else:
         itens.append({"id": "tiktok.jesseia.zernio", "rotulo": "jessé.ia · Zernio",
                       "valor": f"sem resposta ({type(zernio).__name__})", "estado": "erro"})
-        return itens, lista, {"agendados": None, "publicados_hoje": None, "videos_hoje": len(sts)}, agenda
-
-    agend, pub, falhas = zernio
-    for post in agend:
-        for p in plataformas(post, CONTA_JESSEIA):
-            agendados += 1
-            quando = utc_brt(post.get("scheduledFor"))
-            if quando and quando.date() == hoje:
-                agendados_hoje += 1
-            lista.append({"quando": quando, "texto": f"@jesse.ia · agendado · {primeira_linha(post.get('content'))}",
-                          "estado": "info"})
-            evento(agenda, hoje, quando, "jessé.ia", post.get("content"), "info")
-    for post in pub:
-        for p in plataformas(post, CONTA_JESSEIA):
-            quando = utc_brt(p.get("publishedAt") or post.get("scheduledFor"))
-            if ultimo is None or quando > ultimo[0]:
-                ultimo = (quando, p.get("platformPostUrl"))
-            if quando and quando.date() == hoje:
-                publicados_hoje += 1
-                item = {"quando": quando, "texto": f"@jesse.ia · publicado · {primeira_linha(post.get('content'))}",
-                        "estado": "ok"}
-                if p.get("platformPostUrl"):
-                    item["link"] = p["platformPostUrl"]
-                lista.append(item)
-                evento(agenda, hoje, quando, "jessé.ia", post.get("content"), "ok", p.get("platformPostUrl"))
-    falhas_7d = 0
-    for post in falhas:
-        for p in plataformas(post, CONTA_JESSEIA):
-            quando = utc_brt(post.get("scheduledFor"))
-            if quando and (agora() - quando).days < 7:
-                falhas_7d += 1
-            evento(agenda, hoje, quando, "jessé.ia", post.get("content"), "erro")
-
-    itens.append({"id": "tiktok.jesseia.agendados", "rotulo": "jessé.ia · agendados no Zernio", "valor": str(agendados),
-                  "estado": "ok" if agendados else "atencao"})
-    itens.append({"id": "tiktok.jesseia.publicados", "rotulo": "jessé.ia · publicados hoje",
-                  "valor": str(publicados_hoje), "estado": "info"})
     if ultimo:
         itens.append({"id": "tiktok.jesseia.ultimo", "rotulo": "jessé.ia · último publicado",
                       "valor": fmt(ultimo[0]), "estado": "ok"})
     if falhas_7d:
         itens.append({"id": "tiktok.jesseia.falhas", "rotulo": "jessé.ia · falhas em 7 dias",
                       "valor": str(falhas_7d), "estado": "erro"})
-    return itens, lista, {"agendados": agendados, "agendados_hoje": agendados_hoje,
-                          "publicados_hoje": publicados_hoje, "falhas_7d": falhas_7d, "videos_hoje": len(sts),
-                          "ultimo_url": ultimo[1] if ultimo else None}, agenda
+    return itens, lista, {"zernio_ok": zernio_ok, "agendados": agendados, "agendados_hoje": agendados_hoje,
+                          "publicados_hoje": publicados_hoje, "esperando": esperando, "estado_hoje": est_hoje,
+                          "falhas_7d": falhas_7d, "ultimo_url": ultimo[1] if ultimo else None}, agenda
+
+
+def falar_jesseia(r):
+    """Trecho do jessé.ia no resumo falado. De manhã, sem post ainda, não soa como problema."""
+    p = ([qtd(r["publicados_hoje"], "publicado")] if r["publicados_hoje"] else []) + \
+        ([qtd(r["agendados_hoje"], "agendado")] if r["agendados_hoje"] else []) + \
+        ([qtd(r["esperando"], "clipe") + " esperando seu OK"] if r["esperando"] else [])
+    if not p:
+        return "o jessé.ia ainda não tem vídeo aprovado hoje"
+    return "o jessé.ia tem hoje " + (", ".join(p[:-1]) + " e " if len(p) > 1 else "") + p[-1]
 
 
 # ---------- @vendaepop (loja) ----------
@@ -308,7 +418,7 @@ def loja(hoje, zernio):
 
 
 def coletar():
-    hoje = agora().date()
+    hoje = hoje_painel()
     chave_jesse = env_proj("ZERNIO_API_KEY") or segredo("ZERNIO_API_KEY")
     chave_loja = env_proj("ZERNIO_LOJA_API_KEY")
 
@@ -340,12 +450,9 @@ def coletar():
         x["quando"] = fmt(x["quando"])
 
     # frase falada
-    partes = []
-    if r_j.get("agendados") is None:
-        partes.append(f"o jessé.ia tem {r_j['videos_hoje']} vídeos de hoje e o Zernio não respondeu")
-    else:
-        partes.append(f"o jessé.ia tem {qtd(r_j['publicados_hoje'], 'publicado')} hoje e "
-                      f"{qtd(r_j['agendados'], 'agendado')}")
+    partes = [falar_jesseia(r_j)]
+    if not r_j["zernio_ok"]:
+        partes.append("o Zernio do jessé.ia não respondeu")
     if r_m["video_hoje"]:
         st = next((i["valor"] for i in i_m if i["rotulo"] == "Mirian · vídeo de hoje"), "")
         partes.append(f"a Mirian está com o vídeo {st}")
@@ -358,18 +465,18 @@ def coletar():
         resumo += f" Restam só {r_m['afiliar']} produtos pra afiliar na fila da Mirian."
 
     # número grande, frase e agenda do painel em abas (a lista e os itens seguem iguais)
-    if r_j.get("agendados") is None:
-        n_hoje, est_dest = r_j["videos_hoje"], "atencao"
-    else:
-        n_hoje = r_j["publicados_hoje"] + r_j["agendados_hoje"]
-        est_dest = "ok" if n_hoje else "atencao"
-    destaque = {"valor": str(n_hoje), "rotulo": "vídeos jessé.ia hoje", "estado": est_dest}
+    n_hoje = r_j["publicados_hoje"] + r_j["agendados_hoje"]
+    destaque = {"valor": str(n_hoje), "rotulo": "vídeos jessé.ia hoje", "estado": r_j["estado_hoje"]}
 
     pontos = []
-    if r_j.get("agendados") is None:
+    if not r_j["zernio_ok"]:
         pontos.append("Zernio do jessé.ia sem resposta")
-    elif r_j["falhas_7d"]:
+    if r_j["falhas_7d"]:
         pontos.append(qtd(r_j["falhas_7d"], "falha") + " no jessé.ia")
+    if r_j["esperando"]:
+        pontos.append(qtd(r_j["esperando"], "clipe") + " esperando OK no jessé.ia")
+    elif r_j["estado_hoje"] == "atencao":
+        pontos.append("jessé.ia sem vídeo aprovado hoje")
     if not r_m["video_hoje"]:
         pontos.append("Mirian sem vídeo hoje")
     elif r_m["status"] == "ajustar":

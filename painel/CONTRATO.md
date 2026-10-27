@@ -36,7 +36,14 @@ detalhe da gaveta lateral. Decisão em `docs/decisoes/2026-10-20-agentes-abas-vo
   - `conta`: rótulo curto, até 24 caracteres (`jessé.ia`, `@mirian.dicas1`, `Jesus é Pop PT`).
   - `texto`: até 70 caracteres.
   - `estado`: `ok` publicado ou rodou, `info` agendado ou vai rodar, `atencao`, `erro` falhou.
+  - `previsto` (opcional, desde 2026-10-27): `true` em linha que não é post (rotina prevista,
+    clipes esperando OK). Aparece apagada e não entra na contagem de posts.
 - `fatias` (só `custos`): `[{id, rotulo, gasto_usd, fatia_usd, pct_usado, pct_fatia, estado}]`.
+
+Ações (desde 2026-10-27, decisão 2026-10-27-acoes-e-agenda-tiktok): coletor continua só leitura.
+O servidor liga alerta a ação pelo `id` do item (`config.json/acoes[].itens`) e devolve
+`acao` em cada alerta e `acoes` (sem o comando) em `/api/estado`. Só `POST /api/acao` executa,
+com a lista fechada de `config.json/acoes`, e só depois do clique ou do "sim" do Jessé.
 
 Exceção ao "só leitura por arquivo e HTTP": `melavitta.py` faz uma única chamada
 `ssh -o BatchMode=yes` à VPS com comando fixo no código (`docker inspect` e `pm2 jlist`),
