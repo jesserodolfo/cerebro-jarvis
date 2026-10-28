@@ -38,6 +38,8 @@ detalhe da gaveta lateral. Decisão em `docs/decisoes/2026-10-20-agentes-abas-vo
   - `estado`: `ok` publicado ou rodou, `info` agendado ou vai rodar, `atencao`, `erro` falhou.
   - `previsto` (opcional, desde 2026-10-27): `true` em linha que não é post (rotina prevista,
     clipes esperando OK). Aparece apagada e não entra na contagem de posts.
+- `lista_titulo` (opcional, desde 2026-10-28): título da `lista` na gaveta, no lugar de "EVENTOS"
+  (ex.: "VÍDEOS QUE MAIS PUXAM (28 DIAS)"). Decisão em `docs/decisoes/2026-10-28-jarvis-consulta-metricas.md`.
 - `fatias` (só `custos`): `[{id, rotulo, gasto_usd, fatia_usd, pct_usado, pct_fatia, estado}]`.
 
 Ações (desde 2026-10-27, decisão 2026-10-27-acoes-e-agenda-tiktok): coletor continua só leitura.

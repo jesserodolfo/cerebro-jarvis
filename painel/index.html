@@ -299,6 +299,10 @@ a{color:var(--tema);text-decoration:none}a:hover{text-decoration:underline}
             <button class="chip" data-cmd="resumo do dia">RESUMO DO DIA</button>
             <button class="chip" data-cmd="como estão os agentes">AGENTES</button>
             <button class="chip" data-cmd="notícias">NOTÍCIAS</button>
+            <button class="chip" data-cmd="métricas do youtube">YOUTUBE</button>
+            <button class="chip" data-cmd="métricas do tiktok">TIKTOK</button>
+            <button class="chip" data-cmd="métricas do instagram">INSTAGRAM</button>
+            <button class="chip" data-cmd="agenda de hoje">AGENDA DE HOJE</button>
             <button class="chip" data-cmd="pensa melhor">PENSA MELHOR</button>
           </div>
         </div>
@@ -380,7 +384,8 @@ const AREA = {
   relacoes: { label: "Relações", color: "#ec4899" }, meta: { label: "Você", color: "#8a90a6" }
 };
 const ORDEM_AREAS = ["meta", "metas", "trabalho", "projetos", "financas", "aprendizado", "saude", "relacoes"];
-const ORDEM_PROJETOS = ["tiktok", "instagram", "jesusepop", "melavitta", "agentes", "sites", "custos", "noticias"];
+const ORDEM_PROJETOS = ["tiktok", "metricas_tiktok", "instagram", "metricas_instagram", "jesusepop", "youtube",
+  "melavitta", "agentes", "sites", "custos", "noticias"];
 const REDES = [["tiktok", "TikTok", "TT"], ["instagram", "Instagram", "IG"], ["youtube", "YouTube", "YT"], ["facebook", "Facebook", "FB"]];
 const SIGLA = { tiktok: "TT", instagram: "IG", youtube: "YT", facebook: "FB", rotina: "⚙" };
 const LIMITE_API_DIA = 100 / 30; // crédito promocional de US$100/mês da API, só pra escala do anel
@@ -653,6 +658,17 @@ function ouvir(txt) {
 // ---------- comandos ----------
 const ABAS_FALADAS = [[/visao geral|inicio|tela inicial|principal/, "geral"], [/agenda/, "agenda"], [/projetos/, "projetos"],
   [/cerebro|second brain|notas/, "cerebro"], [/custos?|gastos?/, "custos"]];
+// consulta de número sai pronta do coletor, sem IA; pergunta de análise vai pro modo rápido
+const PEDE_ANALISE = /(por ?que|analisa|analise|o que (eu )?(faco|fazer|melhoro|posso)|dica|sugest|melhor(ar|ia)|compara)/;
+const PEDE_NUMERO = /(metrica|numero|como (esta|estao|ta|anda|andam|vai|vao|foi|foram)|resultado|desempenho|views|visualizac|inscrit|seguidor|me (da|de|mostra|passa|fala))/;
+const REDES_FALADAS = [[/tik ?tok/, "metricas_tiktok"], [/\binsta(gram)?\b/, "metricas_instagram"],
+  [/you ?tube|jesus e pop/, "youtube"]];
+// "canal" sozinho é o YouTube; "canal do TikTok" fica só no TikTok
+const redesDoTexto = n => {
+  const r = REDES_FALADAS.filter(([re]) => re.test(n)).map(([, b]) => b);
+  return r.length || !/\bcana(l|is)\b/.test(n) ? r : ["youtube"];
+};
+const PEDE_AGENDA = /(agenda (de |da |pra |para )?(hoje|amanha|semana)|o que (sai|vai sair|tem pra sair|posta)|quantos posts|como (que )?(esta|estao|ta|tao|anda|andam) (a agenda|as postagens|os posts)|postagens (de |da |pra )?(hoje|amanha|semana))/;
 async function comando(txt) {
   txt = String(txt).trim();
   if (!txt) return;
@@ -663,7 +679,7 @@ async function comando(txt) {
   if (/^(para|pare|silencio|chega|cancela)\b/.test(n)) return interromper();
   if (/^(abre|abrir|abra|mostra|mostrar|mostre|vai pra|vai para|ir para|volta pra|volta para)\b/.test(n)) {
     const achada = ABAS_FALADAS.find(([re]) => re.test(n));
-    if (achada) { trocarAba(achada[1]); return responderLocal("Pois não, senhor."); }
+    if (achada && !PEDE_AGENDA.test(n)) { trocarAba(achada[1]); return responderLocal("Pois não, senhor."); }
   }
   // ação oferecida: só roda com o "sim" do Jessé dentro da janela; o modelo nunca dispara ação
   const pend = acaoPendente && Date.now() < acaoPendente.ate ? acaoPendente : null;
@@ -682,6 +698,19 @@ async function comando(txt) {
   if (/(como (esta|estao) (a |os agentes da )?melavitta|agentes da melavitta)/.test(n)) return falarLocal("/api/briefing?bloco=melavitta", "melavitta");
   if (/como (esta|estao) (os )?(meus )?agentes/.test(n)) return falarLocal("/api/briefing?bloco=agentes", "agentes", a => a.bloco === "agentes");
   if (/^(noticias|quais (sao )?as noticias|me (da|de) as noticias)/.test(n)) return falarLocal("/api/briefing?bloco=noticias", "noticias");
+  if (!PEDE_ANALISE.test(n)) {
+    if (PEDE_AGENDA.test(n)) {
+      trocarAba("agenda");
+      return falarLocal(`/api/briefing?bloco=agenda&dia=${/amanha/.test(n) ? 1 : /semana|7 dias|sete dias/.test(n) ? 7 : 0}`);
+    }
+    const redes = redesDoTexto(n);
+    const todas = /\bredes\b|todas as contas/.test(n);
+    if (PEDE_NUMERO.test(n) && (redes.length || todas)) {
+      if (redes.length === 1 && !todas) return falarLocal(`/api/briefing?bloco=${redes[0]}`, redes[0]);
+      trocarAba("projetos");
+      return falarLocal(`/api/briefing?bloco=${(todas ? REDES_FALADAS.map(([, b]) => b) : redes).join(",")}`);
+    }
+  }
   if (/atualiza(r)? (o )?painel/.test(n)) { await carregarEstado(true); return responderLocal("Painel atualizado, senhor."); }
   if (/^(pensa|pense) melhor$/.test(n) || /^(pensa|pense) melhor (nisso|nessa)$/.test(n)) {
     if (!ultimaPergunta) return responderLocal("Pois não, senhor. Qual é a pergunta?");
@@ -1018,7 +1047,7 @@ function abrirGaveta(n) {
     <div class="rotulo">atualizado ${esc((b.atualizado || "").slice(11, 16))}</div>
     <p class="resumo">${esc(b.ok ? b.resumo : "Sem dados agora: " + b.erro)}</p>
     ${itens ? `<div class="rotulo">ITENS</div><ul>${itens}</ul>` : ""}
-    ${lista ? `<div class="rotulo">EVENTOS</div><ul>${lista}</ul>` : ""}
+    ${lista ? `<div class="rotulo">${esc(d.lista_titulo || "EVENTOS")}</div><ul>${lista}</ul>` : ""}
     ${links ? `<div class="links">${links}</div>` : ""}`;
   mostrarGaveta();
 }

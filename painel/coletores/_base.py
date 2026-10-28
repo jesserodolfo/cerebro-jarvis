@@ -37,11 +37,16 @@ def segredo(nome):
     return ""
 
 
-def zernio_get(caminho, **params):
-    """GET no Zernio. Levanta exceção se faltar chave ou a API falhar."""
-    chave = segredo("ZERNIO_API_KEY")
+def zernio_get(caminho, chave=None, **params):
+    """GET no Zernio. Levanta exceção se faltar chave ou a API falhar.
+    chave: opcional, usa essa no Bearer (ex.: a da loja); sem ela (None) vale ZERNIO_API_KEY.
+    Chave vazia passada de propósito não cai na ZERNIO_API_KEY: levanta "falta chave do Zernio"."""
+    if chave is None:
+        chave = segredo("ZERNIO_API_KEY")
+        if not chave:
+            raise RuntimeError("falta ZERNIO_API_KEY")
     if not chave:
-        raise RuntimeError("falta ZERNIO_API_KEY")
+        raise RuntimeError("falta chave do Zernio")
     url = f"{ZERNIO}/{caminho.lstrip('/')}"
     if params:
         url += "?" + urllib.parse.urlencode(params)

@@ -44,8 +44,13 @@ ACOES = {a["id"]: a for a in CONFIG.get("acoes", [])}  # decisão 2026-10-27-aco
 ACOES_LOG = LOGS / "acoes.jsonl"
 ACAO_INTERVALO = 120  # segundos: clique duplo ou voz + clique não rodam a mesma ação duas vezes
 
-COLETORES = ["tiktok", "instagram", "jesusepop", "custos", "sites", "agentes", "melavitta", "noticias"]
-VALIDADE = {"noticias": 900, "custos": 120, "melavitta": 300}  # segundos; o resto vale 60
+COLETORES = ["tiktok", "instagram", "jesusepop", "youtube", "metricas_tiktok", "metricas_instagram",
+             "custos", "sites", "agentes", "melavitta", "noticias"]
+# segundos; o resto vale 60. Métricas do Zernio: seguidores mudam uma vez por dia, 15 min poupa a API
+VALIDADE = {"noticias": 900, "custos": 120, "melavitta": 300, "youtube": 300,
+            "metricas_tiktok": 900, "metricas_instagram": 900}
+REDES_NOME = {"tiktok": "TikTok", "instagram": "Instagram", "youtube": "YouTube", "facebook": "Facebook"}
+DIAS_SEMANA = ["segunda", "terça", "quarta", "quinta", "sexta", "sábado", "domingo"]
 BRIEFING_MAX = 400  # caracteres: o resumo falado cabe no teto de voz
 TEMPO_COLETOR = 8
 
@@ -207,8 +212,26 @@ def estado_rapido():
     return estado()
 
 
-def briefing(bloco=None):
+def briefing(bloco=None, dia=0):
     e = estado()
+    if bloco == "agenda":
+        return {"texto": agenda_falada(e["blocos"], dia), "alertas": 0}
+    if bloco and "," in bloco:
+        # várias redes de uma vez: a primeira frase de cada resumo, "Senhor" só na primeira
+        frases = []
+        for n in bloco.split(","):
+            b = e["blocos"].get(n) or {}
+            f = re.split(r"(?<=[.!?])\s+", (b.get("resumo") or "").strip())[0] if b.get("ok") else ""
+            if f and frases:
+                f = re.sub(r"^Senhor,\s*", "", f)
+                f = f[:1].upper() + f[1:]
+            if f:
+                frases.append(f)
+        if frases and not frases[0].startswith("Senhor"):
+            p = frases[0].split(" ", 1)
+            frases[0] = "Senhor, " + (p[0].lower() if p[0] in ("No", "Na", "O", "A", "Os", "As", "Hoje") else p[0]) + \
+                (" " + p[1] if len(p) > 1 else "")
+        return {"texto": " ".join(frases) or "Senhor, não tenho esses dados agora.", "alertas": 0}
     if bloco in e["blocos"]:
         b = e["blocos"][bloco]
         return {"texto": b.get("resumo") or "Senhor, não tenho esses dados agora.", "alertas": 0}
@@ -235,6 +258,69 @@ def briefing(bloco=None):
             break
         texto = f"{texto} {f}".strip()
     return {"texto": texto, "alertas": len(e["alertas"]), "criticos": n_erro, "atencao": n_aten}
+
+
+def eventos_agenda(blocos):
+    """Agenda de todos os coletores, já com a hora em BRT, em ordem."""
+    saida = []
+    for b in blocos.values():
+        if not b.get("ok"):
+            continue
+        for a in b.get("dados", {}).get("agenda") or []:
+            try:
+                saida.append((datetime.datetime.fromisoformat(a["quando"]).astimezone(_base.FUSO), a))
+            except (KeyError, TypeError, ValueError):
+                continue
+    return sorted(saida, key=lambda x: x[0])
+
+
+def juntar_pt(partes):
+    return partes[0] if len(partes) == 1 else ", ".join(partes[:-1]) + " e " + partes[-1]
+
+
+def agenda_falada(blocos, dia=0):
+    """Fala da agenda: 0 hoje, 1 amanhã, 7 os próximos 7 dias. Conta só post (rotina e previsto fora)."""
+    agora_brt = _base.agora()
+    hoje = agora_brt.date()
+    if dia == 7:
+        ini, fim, nome = hoje, hoje + datetime.timedelta(days=6), "nos próximos 7 dias"
+    else:
+        ini = fim = hoje + datetime.timedelta(days=dia)
+        nome = "amanhã" if dia == 1 else "hoje"
+    evs = eventos_agenda(blocos)
+    posts = [(q, a) for q, a in evs if ini <= q.date() <= fim and a.get("rede") != "rotina" and not a.get("previsto")]
+    if not posts:
+        frases = [f"Senhor, nenhum post na agenda {nome}."]
+    else:
+        por_rede = {}
+        for _, a in posts:
+            por_rede[a.get("rede")] = por_rede.get(a.get("rede"), 0) + 1
+        partes = [f"{q} no {REDES_NOME.get(r, r)}" for r, q in sorted(por_rede.items(), key=lambda x: -x[1])]
+        frases = [f"Senhor, {nome} {'é' if len(posts) == 1 else 'são'} {len(posts)} "
+                  f"{'post' if len(posts) == 1 else 'posts'} na agenda: {juntar_pt(partes)}."]
+        if dia == 0:
+            feitos = sum(1 for _, a in posts if a.get("estado") == "ok")
+            prox = next(((q, a) for q, a in posts if q > agora_brt and a.get("estado") != "ok"), None)
+            if feitos:
+                frases.append(f"Já {'saiu' if feitos == 1 else 'saíram'} {feitos}.")
+            if prox:
+                frases.append(f"O próximo é às {prox[0]:%H:%M} no {REDES_NOME.get(prox[1].get('rede'), prox[1].get('rede'))}, "
+                              f"{prox[1].get('conta', '')}.")
+        elif dia == 1:
+            frases.append(f"O primeiro sai às {posts[0][0]:%H:%M} no {REDES_NOME.get(posts[0][1].get('rede'), '')}.")
+        else:
+            por_dia = {}
+            for q, _ in posts:
+                por_dia[q.date()] = por_dia.get(q.date(), 0) + 1
+            cheio = max(por_dia.items(), key=lambda x: x[1])
+            frases.append(f"O dia mais cheio é {'hoje' if cheio[0] == hoje else DIAS_SEMANA[cheio[0].weekday()]}, com {cheio[1]}.")
+    falhas = [a for q, a in evs if ini <= q.date() <= fim and a.get("estado") == "erro"]
+    if falhas:
+        frases.append(f"Atenção: {len(falhas)} com falha.")
+    espera = [a for q, a in evs if q.date() == ini and a.get("previsto") and a.get("estado") == "atencao"]
+    if espera and dia == 0:
+        frases.append(f"E {espera[0].get('texto', '').rstrip('.')}.")
+    return " ".join(frases)
 
 
 def posts_hoje(blocos):
@@ -558,8 +644,9 @@ class Handler(BaseHTTPRequestHandler):
             valor = urllib.parse.parse_qs(query).get("forcar", [""])[0]
             return self._json(estado(forcar=True if valor == "1" else {n for n in valor.split(",") if n in COLETORES}))
         if rota == "/api/briefing":
-            bloco = query.partition("bloco=")[2].split("&")[0] or None
-            return self._json(briefing(bloco))
+            q = urllib.parse.parse_qs(query)
+            dia = q.get("dia", ["0"])[0]
+            return self._json(briefing(q.get("bloco", [""])[0] or None, int(dia) if dia in ("0", "1", "7") else 0))
         if rota == "/api/notas":
             return self._json(ler_notas())
         if rota == "/api/uso":
