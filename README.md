@@ -1,27 +1,36 @@
-# Cérebro do Jarvis
-Agente de conteúdo do Jessé Machado, rodando em Hermes Agent.
+# Jarvis: personal voice dashboard for a solo creator
 
-## Ordem para colocar no ar
-1. No seu computador, dentro desta pasta: `bash scripts/subir-cerebro.sh`
-2. Na VPS, como usuário do agente: baixe e rode `scripts/instalar-na-vps.sh`
-   (ou siga o PROMPT-DEPLOY.md no Claude Code)
-3. Aponte o Hermes para `~/cerebro` e carregue o `SOUL.md` como identidade
-4. Instale as skills de `skills/` no diretório de skills do Hermes
-5. Conecte o Telegram e trave para responder só ao Jessé
-6. Rode o TESTE DO CÉREBRO (abaixo) antes de qualquer rotina
+Jarvis is my personal command center. It runs on my Mac, collects the status of all my content channels and automations, and shows everything in one local dashboard that I can also talk to by voice.
 
-## Teste do cérebro
-Mande ao Jarvis:
+I use it every day to check my TikTok, Instagram and YouTube channels, see what is scheduled for the week, follow my automation jobs, and ask questions out loud ("how did my reels do this week?").
 
-    Leia o mapa.md e a pasta contexto. Rode a skill pauta-matinal e me mostre
-    o resultado bruto.
+## What it does
 
-Passou se as 3 pautas citam caso real do Jessé (cliente de logística, GM, cliente, MelaVitta,
-lojas de varejo) e nenhuma cai nos ângulos queimados.
-Falhou se aparecer conteúdo genérico. Aí o problema é contexto, não skill.
+- **Dashboard** (`painel/`): a local web page served by `servidor.py` on `127.0.0.1:8790`, with tabs for projects, agenda and agents.
+- **Collectors** (`painel/coletores/`): small read-only Python scripts, one per source (TikTok, Instagram, YouTube, sites, automation agents, costs, news). Each one returns a small JSON card. Rules are in `painel/CONTRATO.md`.
+- **Voice**: local text-to-speech with Kokoro (`voz_kokoro.py`), with ElevenLabs as an optional provider.
+- **Actions**: a closed list of actions in `painel/config.json` (for example, re-run a data collection). They only run after I confirm in the dashboard.
+- **Skills** (`skills/`): prompts for the agent side (morning content ideas, Instagram metrics, competitor radar, reels scripts, carousel, feedback log).
+- **Scripts** (`scripts/`): metrics extraction and setup helpers.
+- **Decisions** (`docs/decisoes/`): short records of every important design decision.
 
-## O que ainda está pendente no contexto
-- precos-DECISAO.md: preço da auditoria
-- referencias-modelagem.md: o que observar em cada perfil de referência
-- subcrencas.md: 8 em quarentena esperando confirmação
-- provas.md: lojas de varejo com +43% de lucro (caso separado ou não)
+## Built with
+
+Python 3 (standard library only for the server and collectors), plain HTML/CSS/JS for the front end, Kokoro TTS, macOS launchd services, and the Zernio API (read-only) for social media metrics.
+
+## How to run
+
+```bash
+cp .env.example painel/.env      # fill in your own keys
+python3 painel/servidor.py       # then open http://127.0.0.1:8790
+```
+
+To run it as a background service on macOS, adapt and load the `painel/*.plist` files with `launchctl`.
+
+## Status
+
+Active personal project. Planned work is listed in [ROADMAP.md](ROADMAP.md).
+
+## License
+
+MIT, see [LICENSE](LICENSE).
